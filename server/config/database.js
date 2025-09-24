@@ -11,12 +11,9 @@ class Database {
       const mongoUri = process.env.MONGODB_URI || 'mongodb://admin:chatpassword@localhost:27017/chatdb?authSource=admin';
 
       const options = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
         maxPoolSize: 10, // 最大连接池大小
         serverSelectionTimeoutMS: 5000, // 服务器选择超时时间
-        socketTimeoutMS: 45000, // Socket 超时时间
-        bufferMaxEntries: 0
+        socketTimeoutMS: 45000 // Socket 超时时间
       };
 
       this.connection = await mongoose.connect(mongoUri, options);
