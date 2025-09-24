@@ -449,7 +449,7 @@ export class DashboardComponent implements OnInit {
   }
 
   promoteToGroupAdmin(user: User): void {
-    if (confirm(\`确定要将用户 \${user.username} 提升为群组管理员吗？\`)) {
+    if (confirm(`确定要将用户 ${user.username} 提升为群组管理员吗？`)) {
       user.roles.push('group-admin');
       this.loadAllUsers();
       alert('用户权限已更新');
@@ -457,7 +457,7 @@ export class DashboardComponent implements OnInit {
   }
 
   deleteUser(user: User): void {
-    if (confirm(\`确定要删除用户 \${user.username} 吗？此操作不可恢复。\`)) {
+    if (confirm(`确定要删除用户 ${user.username} 吗？此操作不可恢复。`)) {
       this.allUsers = this.allUsers.filter(u => u.id !== user.id);
 
       const users = JSON.parse(localStorage.getItem('users') || '[]');

@@ -518,7 +518,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     if (!this.currentGroup) return;
 
     const username = this.getMemberUsername(memberId);
-    if (confirm(\`确定要从群组中移除用户 \${username} 吗？\`)) {
+    if (confirm(`确定要从群组中移除用户 ${username} 吗？`)) {
       this.groupService.removeUserFromGroup(this.currentGroup.id, memberId).subscribe(success => {
         if (success) {
           this.currentGroup!.memberIds = this.currentGroup!.memberIds.filter(id => id !== memberId);

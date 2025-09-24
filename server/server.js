@@ -46,7 +46,7 @@ io.on('connection', (socket) => {
 
   socket.on('user-join', (userData) => {
     activeUsers.set(socket.id, userData);
-    console.log(\`User \${userData.username} joined\`);
+    console.log(`User ${userData.username} joined`);
   });
 
   socket.on('join-channel', (data) => {
@@ -60,10 +60,10 @@ io.on('connection', (socket) => {
 
     socket.to(channelId).emit('user-joined-channel', {
       username: user.username,
-      message: \`\${user.username} 加入了频道\`
+      message: `${user.username} 加入了频道`
     });
 
-    console.log(\`User \${user.username} joined channel \${channelId}\`);
+    console.log(`User ${user.username} joined channel ${channelId}`);
   });
 
   socket.on('leave-channel', (data) => {
@@ -79,7 +79,7 @@ io.on('connection', (socket) => {
 
     socket.to(channelId).emit('user-left-channel', {
       username: user.username,
-      message: \`\${user.username} 离开了频道\`
+      message: `${user.username} 离开了频道`
     });
   });
 
@@ -97,7 +97,7 @@ io.on('connection', (socket) => {
     };
 
     io.to(channelId).emit('receive-message', messageData);
-    console.log(\`Message sent to channel \${channelId} by \${user.username}\`);
+    console.log(`Message sent to channel ${channelId} by ${user.username}`);
   });
 
   socket.on('typing-start', (data) => {
@@ -117,7 +117,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     const userData = activeUsers.get(socket.id);
     if (userData) {
-      console.log(\`User \${userData.username} disconnected\`);
+      console.log(`User ${userData.username} disconnected`);
       activeUsers.delete(socket.id);
 
       roomUsers.forEach((users, channelId) => {
@@ -125,7 +125,7 @@ io.on('connection', (socket) => {
           users.delete(userData.username);
           socket.to(channelId).emit('user-left-channel', {
             username: userData.username,
-            message: \`\${userData.username} 离开了频道\`
+            message: `${userData.username} 离开了频道`
           });
         }
       });
@@ -135,6 +135,6 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(\`Chat server is running on port \${PORT}\`);
-  console.log(\`Socket.IO server is ready\`);
+  console.log(`Chat server is running on port ${PORT}`);
+  console.log(`Socket.IO server is ready`);
 });
