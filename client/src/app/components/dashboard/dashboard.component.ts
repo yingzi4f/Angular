@@ -43,7 +43,7 @@ import { FormsModule } from '@angular/forms';
                 <span>{{ group.memberIds.length }} 成员</span>
                 <span>{{ group.channels.length }} 频道</span>
               </div>
-              <div *ngIf="isGroupAdmin(group)" class="admin-badge">管理员</div>
+              <div *ngIf="isGroupAdminOf(group)" class="admin-badge">管理员</div>
             </div>
           </div>
 
@@ -422,7 +422,7 @@ export class DashboardComponent implements OnInit {
     return this.isGroupAdmin() || this.isSuperAdmin();
   }
 
-  isGroupAdmin(group: Group): boolean {
+  isGroupAdminOf(group: Group): boolean {
     return this.currentUser ? group.adminIds.includes(this.currentUser.id) : false;
   }
 
