@@ -59,7 +59,7 @@ import { LoginRequest } from '../../models/user.model';
 
         <div class="login-help">
           <p>默认超级管理员账户：</p>
-          <p>用户名: super, 密码: 123</p>
+          <p>用户名: super, 密码: 123456</p>
           <button class="btn btn-secondary" (click)="showRegister = !showRegister">
             {{ showRegister ? '返回登录' : '注册新用户' }}
           </button>
@@ -88,6 +88,17 @@ import { LoginRequest } from '../../models/user.model';
                 [(ngModel)]="newUser.email"
                 required
                 placeholder="请输入邮箱">
+            </div>
+
+            <div class="form-group">
+              <label for="newPassword">密码:</label>
+              <input
+                type="password"
+                id="newPassword"
+                name="newPassword"
+                [(ngModel)]="newUser.password"
+                required
+                placeholder="请输入密码(至少6位)">
             </div>
 
             <button type="submit" class="btn btn-primary">注册</button>
@@ -162,7 +173,8 @@ export class LoginComponent {
 
   newUser = {
     username: '',
-    email: ''
+    email: '',
+    password: ''
   };
 
   errorMessage = '';
@@ -201,17 +213,22 @@ export class LoginComponent {
   }
 
   onRegister(): void {
-    if (!this.newUser.username || !this.newUser.email) {
+    if (!this.newUser.username || !this.newUser.email || !this.newUser.password) {
       this.errorMessage = '请填写所有注册信息';
+      return;
+    }
+
+    if (this.newUser.password.length < 6) {
+      this.errorMessage = '密码至少需要6位字符';
       return;
     }
 
     this.authService.registerUser(this.newUser).subscribe({
       next: (response) => {
         if (response.success) {
-          alert('注册成功！请使用新账户登录。默认密码为任意3位以上字符。');
+          alert('注册成功！请使用新账户登录。');
           this.showRegister = false;
-          this.newUser = { username: '', email: '' };
+          this.newUser = { username: '', email: '', password: '' };
         }
       },
       error: (error) => {

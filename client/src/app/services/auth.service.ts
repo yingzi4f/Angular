@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { User, LoginRequest, LoginResponse } from '../models/user.model';
 
 @Injectable({
@@ -20,39 +21,16 @@ export class AuthService {
   }
 
   login(credentials: LoginRequest): Observable<LoginResponse> {
-    const users = this.getStoredUsers();
-    const user = users.find(u => u.username === credentials.username);
-
-    if (user && credentials.password === '123' && user.username === 'super') {
-      const response: LoginResponse = {
-        success: true,
-        user: user,
-        token: 'fake-jwt-token'
-      };
-
-      this.currentUserSubject.next(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      localStorage.setItem('token', response.token!);
-
-      return of(response);
-    } else if (user && this.validatePassword(credentials.password)) {
-      const response: LoginResponse = {
-        success: true,
-        user: user,
-        token: 'fake-jwt-token'
-      };
-
-      this.currentUserSubject.next(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      localStorage.setItem('token', response.token!);
-
-      return of(response);
-    } else {
-      return of({
-        success: false,
-        message: '用户名或密码错误'
-      });
-    }
+    return this.http.post<LoginResponse>(`${this.API_URL}/auth/login`, credentials)
+      .pipe(
+        tap((response: LoginResponse) => {
+          if (response.success && response.user && response.token) {
+            this.currentUserSubject.next(response.user);
+            localStorage.setItem('currentUser', JSON.stringify(response.user));
+            localStorage.setItem('token', response.token);
+          }
+        })
+      );
   }
 
   logout(): void {
@@ -104,21 +82,8 @@ export class AuthService {
     return password.length >= 3;
   }
 
-  registerUser(user: Partial<User>): Observable<any> {
-    const users = this.getStoredUsers();
-    const newUser: User = {
-      id: Date.now().toString(),
-      username: user.username!,
-      email: user.email!,
-      roles: ['user'],
-      groups: [],
-      createdAt: new Date()
-    };
-
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-
-    return of({ success: true, user: newUser });
+  registerUser(user: any): Observable<any> {
+    return this.http.post<any>(`${this.API_URL}/auth/register`, user);
   }
 
   getAllUsers(): Observable<User[]> {
