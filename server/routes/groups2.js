@@ -524,7 +524,8 @@ router.post('/:groupId/channels/:channelId/messages', async (req, res) => {
       });
     }
 
-    if (!channel.memberIds.some(id => id.toString() === req.user.id)) {
+    if (!channel.memberIds.some(id => id.toString() === req.user.id) &&
+        !req.user.roles.includes('super-admin')) {
       return res.status(403).json({
         success: false,
         message: '您不是该频道的成员'

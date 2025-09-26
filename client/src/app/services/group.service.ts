@@ -61,19 +61,19 @@ export class GroupService {
     return this.http.delete<any>(`${this.API_URL}/groups/${groupId}/members/${userId}`);
   }
 
-  sendMessage(channelId: string, content: string): Observable<Message> {
+  sendMessage(groupId: string, channelId: string, content: string): Observable<Message> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) throw new Error('User not authenticated');
 
     const payload = {
       content: content,
-      senderId: currentUser.id
+      type: 'text'
     };
 
-    return this.http.post<Message>(`${this.API_URL}/channels/${channelId}/messages`, payload);
+    return this.http.post<Message>(`${this.API_URL}/groups/${groupId}/channels/${channelId}/messages`, payload);
   }
 
-  getChannelMessages(channelId: string, limit: number = 50): Observable<Message[]> {
-    return this.http.get<Message[]>(`${this.API_URL}/channels/${channelId}/messages?limit=${limit}`);
+  getChannelMessages(groupId: string, channelId: string, limit: number = 50): Observable<Message[]> {
+    return this.http.get<Message[]>(`${this.API_URL}/groups/${groupId}/channels/${channelId}/messages?limit=${limit}`);
   }
 }
