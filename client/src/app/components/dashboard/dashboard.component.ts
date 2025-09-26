@@ -450,21 +450,36 @@ export class DashboardComponent implements OnInit {
 
   promoteToGroupAdmin(user: User): void {
     if (confirm(`确定要将用户 ${user.username} 提升为群组管理员吗？`)) {
-      user.roles.push('group-admin');
-      this.loadAllUsers();
-      alert('用户权限已更新');
+      const newRoles = [...user.roles];
+      if (!newRoles.includes('group-admin')) {
+        newRoles.push('group-admin');
+      }
+
+      this.authService.updateUserRoles(user.id, newRoles).subscribe({
+        next: () => {
+          this.loadAllUsers();
+          alert('用户权限已更新');
+        },
+        error: (error) => {
+          console.error('更新用户权限失败:', error);
+          alert('更新用户权限失败');
+        }
+      });
     }
   }
 
   deleteUser(user: User): void {
     if (confirm(`确定要删除用户 ${user.username} 吗？此操作不可恢复。`)) {
-      this.allUsers = this.allUsers.filter(u => u.id !== user.id);
-
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const filteredUsers = users.filter((u: User) => u.id !== user.id);
-      localStorage.setItem('users', JSON.stringify(filteredUsers));
-
-      alert('用户已删除');
+      this.authService.deleteUser(user.id).subscribe({
+        next: () => {
+          this.loadAllUsers();
+          alert('用户已删除');
+        },
+        error: (error) => {
+          console.error('删除用户失败:', error);
+          alert('删除用户失败');
+        }
+      });
     }
   }
 

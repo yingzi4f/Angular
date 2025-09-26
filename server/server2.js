@@ -14,6 +14,7 @@ const mongoDataStore = require('./models/mongoDataStore');
 const authRoutes = require('./routes/auth2');
 const groupRoutes = require('./routes/groups2');
 const uploadRoutes = require('./routes/upload');
+const adminRoutes = require('./routes/admin');
 
 // 导入中间件
 const { authenticateToken } = require('./middleware/auth');
@@ -58,6 +59,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', authRoutes);
 app.use('/api/groups', authenticateToken, groupRoutes);
 app.use('/api/upload', authenticateToken, uploadRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 健康检查端点
 app.get('/api/health', async (req, res) => {

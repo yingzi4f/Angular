@@ -53,6 +53,43 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 获取指定用户的群组列表
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // 只允许获取自己的群组或超级管理员可以获取任何用户的群组
+    if (req.user.id !== userId && !req.user.roles.includes('super-admin')) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足'
+      });
+    }
+
+    const userGroups = await mongoDataStore.getUserGroups(userId);
+
+    // 为每个群组获取频道信息
+    const groupsWithChannels = await Promise.all(
+      userGroups.map(async (group) => {
+        const channels = await mongoDataStore.getGroupChannels(group._id);
+        return {
+          ...group.toObject(),
+          channels: channels
+        };
+      })
+    );
+
+    res.json(groupsWithChannels);
+
+  } catch (error) {
+    console.error('Get user groups error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
+
 // 获取所有群组（超级管理员）
 router.get('/all', async (req, res) => {
   try {

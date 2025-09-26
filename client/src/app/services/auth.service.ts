@@ -60,26 +60,13 @@ export class AuthService {
     return this.hasRole('group-admin');
   }
 
-  private getStoredUsers(): User[] {
-    const usersData = localStorage.getItem('users');
-    if (!usersData) {
-      const defaultUsers: User[] = [
-        {
-          id: '1',
-          username: 'super',
-          email: 'super@admin.com',
-          roles: ['super-admin'],
-          groups: []
-        }
-      ];
-      localStorage.setItem('users', JSON.stringify(defaultUsers));
-      return defaultUsers;
-    }
-    return JSON.parse(usersData);
+  // Add user management methods
+  deleteUser(userId: string): Observable<any> {
+    return this.http.delete(`${this.API_URL}/admin/users/${userId}`);
   }
 
-  private validatePassword(password: string): boolean {
-    return password.length >= 3;
+  updateUserRoles(userId: string, roles: string[]): Observable<any> {
+    return this.http.put(`${this.API_URL}/admin/users/${userId}/roles`, { roles });
   }
 
   registerUser(user: any): Observable<any> {
@@ -87,6 +74,6 @@ export class AuthService {
   }
 
   getAllUsers(): Observable<User[]> {
-    return of(this.getStoredUsers());
+    return this.http.get<User[]>(`${this.API_URL}/admin/users`);
   }
 }

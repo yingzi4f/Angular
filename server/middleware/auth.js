@@ -31,4 +31,14 @@ function generateToken(user) {
   );
 }
 
-module.exports = { authenticateToken, generateToken };
+function requireSuperAdmin(req, res, next) {
+  if (!req.user || !req.user.roles || !req.user.roles.includes('super-admin')) {
+    return res.status(403).json({
+      success: false,
+      message: '需要超级管理员权限'
+    });
+  }
+  next();
+}
+
+module.exports = { authenticateToken, generateToken, requireSuperAdmin };

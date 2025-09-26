@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of } from 'rxjs';
 import { Group, Channel, Message } from '../models/group.model';
 import { AuthService } from './auth.service';
 
@@ -7,207 +8,72 @@ import { AuthService } from './auth.service';
   providedIn: 'root'
 })
 export class GroupService {
-  private groupsSubject = new BehaviorSubject<Group[]>([]);
-  public groups$ = this.groupsSubject.asObservable();
+  private readonly API_URL = 'http://localhost:3000/api';
 
-  constructor(private authService: AuthService) {
-    this.loadGroups();
-  }
-
-  private loadGroups(): void {
-    const groupsData = localStorage.getItem('groups');
-    if (groupsData) {
-      this.groupsSubject.next(JSON.parse(groupsData));
-    } else {
-      this.groupsSubject.next([]);
-    }
-  }
-
-  private saveGroups(groups: Group[]): void {
-    localStorage.setItem('groups', JSON.stringify(groups));
-    this.groupsSubject.next(groups);
-  }
+  constructor(
+    private authService: AuthService,
+    private http: HttpClient
+  ) {}
 
   getUserGroups(): Observable<Group[]> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) return of([]);
 
-    const allGroups = this.groupsSubject.value;
-    const userGroups = allGroups.filter(group =>
-      group.memberIds.includes(currentUser.id) ||
-      group.adminIds.includes(currentUser.id) ||
-      this.authService.isSuperAdmin()
-    );
-
-    return of(userGroups);
+    return this.http.get<Group[]>(`${this.API_URL}/groups/user/${currentUser.id}`);
   }
 
   getAllGroups(): Observable<Group[]> {
-    return of(this.groupsSubject.value);
+    return this.http.get<Group[]>(`${this.API_URL}/admin/groups`);
   }
 
   createGroup(groupData: Partial<Group>): Observable<Group> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) throw new Error('User not authenticated');
 
-    const newGroup: Group = {
-      id: Date.now().toString(),
-      name: groupData.name!,
-      description: groupData.description || '',
-      adminIds: [currentUser.id],
-      memberIds: [currentUser.id],
-      channels: [{
-        id: Date.now().toString() + '_general',
-        name: 'general',
-        description: '默认频道',
-        groupId: Date.now().toString(),
-        memberIds: [currentUser.id],
-        messages: [],
-        createdAt: new Date()
-      }],
-      createdBy: currentUser.id,
-      createdAt: new Date()
+    const payload = {
+      name: groupData.name,
+      description: groupData.description,
+      createdBy: currentUser.id
     };
 
-    const groups = this.groupsSubject.value;
-    groups.push(newGroup);
-    this.saveGroups(groups);
-
-    return of(newGroup);
+    return this.http.post<Group>(`${this.API_URL}/groups`, payload);
   }
 
   createChannel(groupId: string, channelData: Partial<Channel>): Observable<Channel> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser) throw new Error('User not authenticated');
-
-    const groups = this.groupsSubject.value;
-    const groupIndex = groups.findIndex(g => g.id === groupId);
-
-    if (groupIndex === -1) throw new Error('Group not found');
-
-    const group = groups[groupIndex];
-    if (!group.adminIds.includes(currentUser.id) && !this.authService.isSuperAdmin()) {
-      throw new Error('Insufficient permissions');
-    }
-
-    const newChannel: Channel = {
-      id: Date.now().toString(),
-      name: channelData.name!,
-      description: channelData.description || '',
-      groupId: groupId,
-      memberIds: [...group.memberIds],
-      messages: [],
-      createdAt: new Date()
+    const payload = {
+      name: channelData.name,
+      description: channelData.description,
+      groupId: groupId
     };
 
-    group.channels.push(newChannel);
-    this.saveGroups(groups);
+    return this.http.post<Channel>(`${this.API_URL}/groups/${groupId}/channels`, payload);
+  }
 
-    return of(newChannel);
+  getGroupChannels(groupId: string): Observable<Channel[]> {
+    return this.http.get<Channel[]>(`${this.API_URL}/groups/${groupId}/channels`);
   }
 
   addUserToGroup(groupId: string, userId: string): Observable<boolean> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser) return of(false);
-
-    const groups = this.groupsSubject.value;
-    const groupIndex = groups.findIndex(g => g.id === groupId);
-
-    if (groupIndex === -1) return of(false);
-
-    const group = groups[groupIndex];
-    if (!group.adminIds.includes(currentUser.id) && !this.authService.isSuperAdmin()) {
-      return of(false);
-    }
-
-    if (!group.memberIds.includes(userId)) {
-      group.memberIds.push(userId);
-      group.channels.forEach(channel => {
-        if (!channel.memberIds.includes(userId)) {
-          channel.memberIds.push(userId);
-        }
-      });
-      this.saveGroups(groups);
-    }
-
-    return of(true);
+    return this.http.post<any>(`${this.API_URL}/groups/${groupId}/members`, { userId });
   }
 
   removeUserFromGroup(groupId: string, userId: string): Observable<boolean> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser) return of(false);
-
-    const groups = this.groupsSubject.value;
-    const groupIndex = groups.findIndex(g => g.id === groupId);
-
-    if (groupIndex === -1) return of(false);
-
-    const group = groups[groupIndex];
-    if (!group.adminIds.includes(currentUser.id) && !this.authService.isSuperAdmin()) {
-      return of(false);
-    }
-
-    group.memberIds = group.memberIds.filter(id => id !== userId);
-    group.adminIds = group.adminIds.filter(id => id !== userId);
-    group.channels.forEach(channel => {
-      channel.memberIds = channel.memberIds.filter(id => id !== userId);
-    });
-
-    this.saveGroups(groups);
-    return of(true);
+    return this.http.delete<any>(`${this.API_URL}/groups/${groupId}/members/${userId}`);
   }
 
   sendMessage(channelId: string, content: string): Observable<Message> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) throw new Error('User not authenticated');
 
-    const groups = this.groupsSubject.value;
-    let targetGroup: Group | undefined;
-    let targetChannel: Channel | undefined;
-
-    for (const group of groups) {
-      const channel = group.channels.find(c => c.id === channelId);
-      if (channel) {
-        targetGroup = group;
-        targetChannel = channel;
-        break;
-      }
-    }
-
-    if (!targetGroup || !targetChannel) {
-      throw new Error('Channel not found');
-    }
-
-    if (!targetChannel.memberIds.includes(currentUser.id)) {
-      throw new Error('User not member of channel');
-    }
-
-    const newMessage: Message = {
-      id: Date.now().toString(),
+    const payload = {
       content: content,
-      senderId: currentUser.id,
-      senderUsername: currentUser.username,
-      channelId: channelId,
-      timestamp: new Date(),
-      type: 'text'
+      senderId: currentUser.id
     };
 
-    targetChannel.messages.push(newMessage);
-    this.saveGroups(groups);
-
-    return of(newMessage);
+    return this.http.post<Message>(`${this.API_URL}/channels/${channelId}/messages`, payload);
   }
 
-  getChannelMessages(channelId: string): Observable<Message[]> {
-    const groups = this.groupsSubject.value;
-
-    for (const group of groups) {
-      const channel = group.channels.find(c => c.id === channelId);
-      if (channel) {
-        return of(channel.messages.slice(-20));
-      }
-    }
-
-    return of([]);
+  getChannelMessages(channelId: string, limit: number = 50): Observable<Message[]> {
+    return this.http.get<Message[]>(`${this.API_URL}/channels/${channelId}/messages?limit=${limit}`);
   }
 }
