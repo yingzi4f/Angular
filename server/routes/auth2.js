@@ -25,14 +25,8 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    let isPasswordValid = false;
-
-    // 特殊处理超级管理员默认密码
-    if (user.username === 'super' && password === '123') {
-      isPasswordValid = true;
-    } else {
-      isPasswordValid = await user.comparePassword(password);
-    }
+    // 统一使用加密密码验证
+    const isPasswordValid = await user.comparePassword(password);
 
     if (!isPasswordValid) {
       return res.status(401).json({

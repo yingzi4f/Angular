@@ -17,11 +17,11 @@ class MongoDataStore {
         const superAdmin = new User({
           username: 'super',
           email: 'super@admin.com',
-          password: '123',
+          password: '123456',
           roles: ['super-admin']
         });
         await superAdmin.save();
-        console.log('✅ 默认超级管理员已创建');
+        console.log('✅ 默认超级管理员已创建 (用户名: super, 密码: 123456)');
       }
     } catch (error) {
       console.error('❌ 创建默认用户失败:', error);
