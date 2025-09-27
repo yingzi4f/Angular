@@ -468,17 +468,17 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   loadMessages(): void {
-    if (this.currentChannel) {
-      this.groupService.getChannelMessages(this.currentChannel.id).subscribe(messages => {
+    if (this.currentChannel && this.currentGroup) {
+      this.groupService.getChannelMessages(this.currentGroup.id, this.currentChannel.id).subscribe(messages => {
         this.messages = messages;
       });
     }
   }
 
   sendMessage(): void {
-    if (!this.newMessage.trim() || !this.currentChannel) return;
+    if (!this.newMessage.trim() || !this.currentChannel || !this.currentGroup) return;
 
-    this.groupService.sendMessage(this.currentChannel.id, this.newMessage).subscribe(message => {
+    this.groupService.sendMessage(this.currentGroup.id, this.currentChannel.id, this.newMessage).subscribe(message => {
       this.messages.push(message);
       this.newMessage = '';
     });
