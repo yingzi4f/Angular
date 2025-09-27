@@ -423,11 +423,21 @@ export class DashboardComponent implements OnInit {
   }
 
   isGroupAdminOf(group: Group): boolean {
-    return this.currentUser ? group.adminIds.includes(this.currentUser.id) : false;
+    if (!this.currentUser) return false;
+
+    // adminIds 可能是字符串数组或对象数组
+    return group.adminIds.some(adminId => {
+      if (typeof adminId === 'string') {
+        return adminId === this.currentUser!.id;
+      } else if (typeof adminId === 'object' && adminId !== null) {
+        return (adminId as any)._id === this.currentUser!.id || (adminId as any).id === this.currentUser!.id;
+      }
+      return false;
+    });
   }
 
   enterGroup(group: Group): void {
-    this.router.navigate(['/chat', group.id]);
+    this.router.navigate(['/chat', group._id || group.id]);
   }
 
   createGroup(): void {
