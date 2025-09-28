@@ -594,7 +594,12 @@ export class DashboardComponent implements OnInit {
   }
 
   loadUserGroups(): void {
-    this.groupService.getUserGroups().subscribe({
+    // For super admin, load all groups; for others, load user groups
+    const groupsObservable = this.isSuperAdmin()
+      ? this.groupService.getAllGroups()
+      : this.groupService.getUserGroups();
+
+    groupsObservable.subscribe({
       next: groups => {
         console.log('User groups loaded:', groups);
         console.log('First group structure:', groups[0]);

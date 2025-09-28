@@ -52,19 +52,51 @@ groupApplicationSchema.statics.getUserApplications = function(userId) {
 };
 
 // 静态方法：获取群组的待审核申请
-groupApplicationSchema.statics.getPendingApplicationsForGroup = function(groupId) {
-  return this.find({ groupId, status: 'pending' })
+groupApplicationSchema.statics.getPendingApplicationsForGroup = async function(groupId) {
+  const applications = await this.find({ groupId, status: 'pending' })
     .populate('userId', 'username email avatar')
     .populate('groupId', 'name description')
     .sort({ createdAt: -1 });
+
+  // 扁平化数据结构，方便前端使用
+  return applications.map(app => ({
+    _id: app._id,
+    id: app._id,
+    groupId: app.groupId._id,
+    userId: app.userId._id,
+    username: app.userId.username,
+    groupName: app.groupId.name,
+    message: app.message,
+    status: app.status,
+    appliedAt: app.createdAt,
+    reviewedBy: app.reviewedBy,
+    reviewedAt: app.reviewedAt,
+    reviewMessage: app.reviewMessage
+  }));
 };
 
 // 静态方法：获取所有待审核申请（管理员用）
-groupApplicationSchema.statics.getAllPendingApplications = function() {
-  return this.find({ status: 'pending' })
+groupApplicationSchema.statics.getAllPendingApplications = async function() {
+  const applications = await this.find({ status: 'pending' })
     .populate('userId', 'username email avatar')
     .populate('groupId', 'name description')
     .sort({ createdAt: -1 });
+
+  // 扁平化数据结构，方便前端使用
+  return applications.map(app => ({
+    _id: app._id,
+    id: app._id,
+    groupId: app.groupId._id,
+    userId: app.userId._id,
+    username: app.userId.username,
+    groupName: app.groupId.name,
+    message: app.message,
+    status: app.status,
+    appliedAt: app.createdAt,
+    reviewedBy: app.reviewedBy,
+    reviewedAt: app.reviewedAt,
+    reviewMessage: app.reviewMessage
+  }));
 };
 
 module.exports = mongoose.model('GroupApplication', groupApplicationSchema);

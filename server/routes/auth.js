@@ -216,7 +216,7 @@ router.delete('/users/:id', async (req, res) => {
 });
 
 // 管理员创建用户
-router.post('/admin/create-user', async (req, res) => {
+router.post('/admin/create-user', require('../middleware/auth').authenticateToken, async (req, res) => {
   try {
     const { username, email, password, roles = ['user'] } = req.body;
 
