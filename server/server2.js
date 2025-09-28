@@ -11,8 +11,8 @@ const database = require('./config/database');
 const mongoDataStore = require('./models/mongoDataStore');
 
 // 导入路由
-const authRoutes = require('./routes/auth2');
-const groupRoutes = require('./routes/groups2');
+const authRoutes = require('./routes/auth');
+const groupRoutes = require('./routes/groups');
 const uploadRoutes = require('./routes/upload');
 const adminRoutes = require('./routes/admin');
 
@@ -23,7 +23,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:4200",
+    origin: [process.env.CLIENT_URL || "http://localhost:4200", "http://localhost:4201"],
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -33,7 +33,7 @@ const PORT = process.env.PORT || 3000;
 
 // 中间件配置
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:4200",
+  origin: [process.env.CLIENT_URL || "http://localhost:4200", "http://localhost:4201"],
   credentials: true
 }));
 

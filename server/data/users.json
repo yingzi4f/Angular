@@ -9,5 +9,16 @@
     ],
     "groups": [],
     "createdAt": "2025-09-24T09:26:18.374Z"
+  },
+  {
+    "id": "2ab333e4-860b-42ed-8086-3ef17b1772e6",
+    "username": "11",
+    "email": "1427474662@qq.com",
+    "password": "$2a$10$iSoMFUihYetuRviaIfAxA.nEDtJcWFbXYIE.D/9iTDMHwkywowF0i",
+    "roles": [
+      "user"
+    ],
+    "groups": [],
+    "createdAt": "2025-09-27T02:23:27.163Z"
   }
 ]

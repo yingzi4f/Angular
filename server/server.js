@@ -4,6 +4,9 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 
+// MongoDB连接
+const database = require('./config/database');
+
 const authRoutes = require('./routes/auth');
 const groupRoutes = require('./routes/groups');
 const { authenticateToken } = require('./middleware/auth');

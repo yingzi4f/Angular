@@ -59,7 +59,7 @@ import { LoginRequest } from '../../models/user.model';
 
         <div class="login-help">
           <p>默认超级管理员账户：</p>
-          <p>用户名: super, 密码: 123456</p>
+          <p>用户名: super, 密码: 123</p>
           <button class="btn btn-secondary" (click)="showRegister = !showRegister">
             {{ showRegister ? '返回登录' : '注册新用户' }}
           </button>

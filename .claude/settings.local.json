@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(git init:*)",
+      "Bash(mkdir:*)",
+      "Bash(git add:*)",
+      "Bash(git config:*)",
+      "Bash(git commit:*)",
+      "Bash(chmod:*)",
+      "Bash(docker-compose:*)",
+      "Bash(npm run dev:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "mcp__playwright__playwright_navigate",
+      "mcp__playwright__playwright_screenshot",
+      "mcp__playwright__playwright_console_logs",
+      "mcp__playwright__playwright_fill",
+      "mcp__playwright__playwright_get_visible_html",
+      "mcp__playwright__playwright_get_visible_text",
+      "mcp__playwright__playwright_click",
+      "mcp__playwright__playwright_evaluate",
+      "Bash(find:*)",
+      "Bash(npm start)",
+      "Bash(ng serve:*)",
+      "Bash(ng build)",
+      "Bash(kill:*)",
+      "Bash(pkill:*)",
+      "Bash(sudo systemctl start:*)",
+      "Bash(mongod:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

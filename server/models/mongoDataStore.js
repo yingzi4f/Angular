@@ -2,6 +2,7 @@ const User = require('./mongodb/User');
 const Group = require('./mongodb/Group');
 const Channel = require('./mongodb/Channel');
 const Message = require('./mongodb/Message');
+const GroupApplication = require('./mongodb/GroupApplication');
 const mongoose = require('mongoose');
 
 class MongoDataStore {
@@ -369,6 +370,118 @@ class MongoDataStore {
         error: error.message,
         timestamp: new Date()
       };
+    }
+  }
+
+  // 群组申请管理方法
+  async getAvailableGroups(userId) {
+    try {
+      return await Group.find({
+        $and: [
+          { memberIds: { $ne: userId } },
+          { adminIds: { $ne: userId } }
+        ]
+      }).populate('adminIds memberIds', 'username email avatar');
+    } catch (error) {
+      console.error('获取可申请群组失败:', error);
+      throw error;
+    }
+  }
+
+  async createGroupApplication(applicationData) {
+    try {
+      const existingApplication = await GroupApplication.findOne({
+        groupId: applicationData.groupId,
+        userId: applicationData.userId,
+        status: 'pending'
+      });
+
+      if (existingApplication) {
+        throw new Error('已有待审核的申请');
+      }
+
+      const application = new GroupApplication(applicationData);
+      return await application.save();
+    } catch (error) {
+      console.error('创建群组申请失败:', error);
+      throw error;
+    }
+  }
+
+  async getPendingApplications(groupId = null) {
+    try {
+      if (groupId) {
+        return await GroupApplication.getPendingApplicationsForGroup(groupId);
+      } else {
+        return await GroupApplication.getAllPendingApplications();
+      }
+    } catch (error) {
+      console.error('获取待审核申请失败:', error);
+      throw error;
+    }
+  }
+
+  async reviewGroupApplication(applicationId, reviewData) {
+    try {
+      const application = await GroupApplication.findById(applicationId);
+      if (!application) {
+        throw new Error('申请不存在');
+      }
+
+      if (application.status !== 'pending') {
+        throw new Error('申请已被处理');
+      }
+
+      application.status = reviewData.action === 'approve' ? 'approved' : 'rejected';
+      application.reviewedBy = reviewData.reviewedBy;
+      application.reviewedAt = new Date();
+      application.reviewMessage = reviewData.message || '';
+
+      await application.save();
+
+      if (reviewData.action === 'approve') {
+        await this.addUserToGroup(application.groupId, application.userId);
+      }
+
+      return application;
+    } catch (error) {
+      console.error('审核群组申请失败:', error);
+      throw error;
+    }
+  }
+
+  async getUserApplications(userId) {
+    try {
+      return await GroupApplication.getUserApplications(userId);
+    } catch (error) {
+      console.error('获取用户申请记录失败:', error);
+      throw error;
+    }
+  }
+
+  // 管理员创建用户
+  async createUserByAdmin(userData) {
+    try {
+      const existingUser = await User.findOne({
+        $or: [
+          { username: userData.username },
+          { email: userData.email }
+        ]
+      });
+
+      if (existingUser) {
+        throw new Error('用户名或邮箱已存在');
+      }
+
+      const user = new User({
+        ...userData,
+        roles: userData.roles || ['user']
+      });
+
+      return await user.save();
+    } catch (error) {
+      console.error('管理员创建用户失败:', error);
+      throw error;
     }
   }
 }

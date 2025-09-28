@@ -1,1 +1,28 @@
-[]
+[
+  {
+    "id": "4d24c1cb-d159-4f31-ac6b-c9b7853f476e",
+    "name": "测试群组",
+    "description": "这是一个测试群组，用于验证聊天系统功能",
+    "adminIds": [
+      "1"
+    ],
+    "memberIds": [
+      "1"
+    ],
+    "channels": [
+      {
+        "id": "e8704b58-8fe6-4b8f-909f-1beb5bc3e222",
+        "name": "general",
+        "description": "默认频道",
+        "groupId": "4d24c1cb-d159-4f31-ac6b-c9b7853f476e",
+        "memberIds": [
+          "1"
+        ],
+        "messages": [],
+        "createdAt": "2025-09-27T02:17:52.674Z"
+      }
+    ],
+    "createdBy": "1",
+    "createdAt": "2025-09-27T02:17:52.674Z"
+  }
+]

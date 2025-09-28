@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { tap, map } from 'rxjs/operators';
 import { User, LoginRequest, LoginResponse } from '../models/user.model';
 
 @Injectable({
@@ -62,11 +62,11 @@ export class AuthService {
 
   // Add user management methods
   deleteUser(userId: string): Observable<any> {
-    return this.http.delete(`${this.API_URL}/admin/users/${userId}`);
+    return this.http.delete(`${this.API_URL}/auth/users/${userId}`);
   }
 
   updateUserRoles(userId: string, roles: string[]): Observable<any> {
-    return this.http.put(`${this.API_URL}/admin/users/${userId}/roles`, { roles });
+    return this.http.put(`${this.API_URL}/auth/users/${userId}/promote`, { role: roles[roles.length - 1] });
   }
 
   registerUser(user: any): Observable<any> {
@@ -74,6 +74,9 @@ export class AuthService {
   }
 
   getAllUsers(): Observable<User[]> {
-    return this.http.get<User[]>(`${this.API_URL}/admin/users`);
+    return this.http.get<{ success: boolean; users: User[] }>(`${this.API_URL}/auth/users`)
+      .pipe(
+        map(response => response.users || [])
+      );
   }
 }

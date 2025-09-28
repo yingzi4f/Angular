@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const dataStore = require('../models/dataStore');
+const dataStore = require('../models/mongoDataStore');
 const { generateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -16,7 +16,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const user = dataStore.findUserByUsername(username);
+    const user = await dataStore.findUserByUsername(username);
 
     if (!user) {
       return res.status(401).json({
@@ -43,11 +43,11 @@ router.post('/login', async (req, res) => {
     const token = generateToken(user);
 
     const userResponse = {
-      id: user.id,
+      id: user._id || user.id,
       username: user.username,
       email: user.email,
       roles: user.roles,
-      groups: user.groups
+      groups: user.groups || []
     };
 
     res.json({
@@ -116,20 +116,21 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.get('/users', (req, res) => {
+router.get('/users', async (req, res) => {
   try {
-    const users = dataStore.getUsers().map(user => ({
-      id: user.id,
+    const users = await dataStore.getUsers();
+    const usersResponse = users.map(user => ({
+      id: user._id || user.id,
       username: user.username,
       email: user.email,
       roles: user.roles,
-      groups: user.groups,
+      groups: user.groups || [],
       createdAt: user.createdAt
     }));
 
     res.json({
       success: true,
-      users: users
+      users: usersResponse
     });
 
   } catch (error) {
@@ -180,7 +181,7 @@ router.put('/users/:id/promote', (req, res) => {
   }
 });
 
-router.delete('/users/:id', (req, res) => {
+router.delete('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -191,7 +192,7 @@ router.delete('/users/:id', (req, res) => {
       });
     }
 
-    const success = dataStore.deleteUser(id);
+    const success = await dataStore.deleteUser(id);
 
     if (!success) {
       return res.status(404).json({
@@ -207,6 +208,82 @@ router.delete('/users/:id', (req, res) => {
 
   } catch (error) {
     console.error('Delete user error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
+
+// 管理员创建用户
+router.post('/admin/create-user', async (req, res) => {
+  try {
+    const { username, email, password, roles = ['user'] } = req.body;
+
+    // 检查权限：只有super-admin和group-admin可以创建用户
+    if (!req.user.roles.includes('super-admin') && !req.user.roles.includes('group-admin')) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足，需要管理员权限'
+      });
+    }
+
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: '用户名、邮箱和密码不能为空'
+      });
+    }
+
+    // 检查用户名长度
+    if (username.length < 3 || username.length > 20) {
+      return res.status(400).json({
+        success: false,
+        message: '用户名长度必须在3-20个字符之间'
+      });
+    }
+
+    // 检查密码长度
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: '密码长度不能少于6个字符'
+      });
+    }
+
+    // 加密密码
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await dataStore.createUserByAdmin({
+      username,
+      email,
+      password: hashedPassword,
+      roles
+    });
+
+    const userResponse = {
+      id: newUser._id || newUser.id,
+      username: newUser.username,
+      email: newUser.email,
+      roles: newUser.roles,
+      createdAt: newUser.createdAt
+    };
+
+    res.status(201).json({
+      success: true,
+      user: userResponse,
+      message: '用户创建成功'
+    });
+
+  } catch (error) {
+    if (error.message === '用户名或邮箱已存在') {
+      return res.status(409).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    console.error('Admin create user error:', error);
     res.status(500).json({
       success: false,
       message: '服务器错误'
