@@ -1,5 +1,6 @@
 export interface User {
-  id: string;
+  id?: string;
+  _id?: string;  // MongoDB ObjectId
   username: string;
   email: string;
   roles: string[];

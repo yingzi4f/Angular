@@ -381,20 +381,44 @@ export class DashboardComponent implements OnInit {
   }
 
   loadUserGroups(): void {
-    this.groupService.getUserGroups().subscribe(groups => {
-      this.groups = groups;
+    this.groupService.getUserGroups().subscribe({
+      next: groups => {
+        console.log('User groups loaded:', groups);
+        console.log('First group structure:', groups[0]);
+        if (groups[0]) {
+          console.log('Group properties:', Object.keys(groups[0]));
+          console.log('Group _id:', groups[0]._id);
+          console.log('Group id:', groups[0].id);
+        }
+        this.groups = groups;
+      },
+      error: error => {
+        console.error('Error loading user groups:', error);
+      }
     });
   }
 
   loadAllUsers(): void {
-    this.authService.getAllUsers().subscribe(users => {
-      this.allUsers = users;
+    this.authService.getAllUsers().subscribe({
+      next: users => {
+        console.log('All users loaded:', users);
+        this.allUsers = users;
+      },
+      error: error => {
+        console.error('Error loading all users:', error);
+      }
     });
   }
 
   loadAllGroups(): void {
-    this.groupService.getAllGroups().subscribe(groups => {
-      this.allGroups = groups;
+    this.groupService.getAllGroups().subscribe({
+      next: groups => {
+        console.log('All groups loaded:', groups);
+        this.allGroups = groups;
+      },
+      error: error => {
+        console.error('Error loading all groups:', error);
+      }
     });
   }
 
@@ -437,7 +461,17 @@ export class DashboardComponent implements OnInit {
   }
 
   enterGroup(group: Group): void {
-    this.router.navigate(['/chat', group._id || group.id]);
+    console.log('Group object:', group);
+
+    // 使用实际的群组ID（支持MongoDB的_id和标准id字段）
+    const groupId = group._id || group.id;
+    console.log('Entering group with ID:', groupId);
+
+    if (groupId) {
+      this.router.navigate(['/chat', groupId]);
+    } else {
+      console.error('No valid group ID found:', group);
+    }
   }
 
   createGroup(): void {
@@ -465,7 +499,12 @@ export class DashboardComponent implements OnInit {
         newRoles.push('group-admin');
       }
 
-      this.authService.updateUserRoles(user.id, newRoles).subscribe({
+      const userId = user._id || user.id;
+      if (!userId) {
+        alert('用户ID无效');
+        return;
+      }
+      this.authService.updateUserRoles(userId, newRoles).subscribe({
         next: () => {
           this.loadAllUsers();
           alert('用户权限已更新');
@@ -480,7 +519,12 @@ export class DashboardComponent implements OnInit {
 
   deleteUser(user: User): void {
     if (confirm(`确定要删除用户 ${user.username} 吗？此操作不可恢复。`)) {
-      this.authService.deleteUser(user.id).subscribe({
+      const userId = user._id || user.id;
+      if (!userId) {
+        alert('用户ID无效');
+        return;
+      }
+      this.authService.deleteUser(userId).subscribe({
         next: () => {
           this.loadAllUsers();
           alert('用户已删除');

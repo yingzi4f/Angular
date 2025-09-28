@@ -13,11 +13,11 @@ import { Group, Channel, Message } from '../../models/group.model';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="chat-container" *ngIf="currentGroup">
+    <div class="chat-container">
       <!-- Sidebar -->
       <div class="sidebar">
         <div class="sidebar-header">
-          <h3>{{ currentGroup.name }}</h3>
+          <h3>{{ currentGroup?.name || 'Loading Group...' }}</h3>
           <button class="btn btn-secondary btn-small" (click)="goBack()">
             返回
           </button>
@@ -36,7 +36,7 @@ import { Group, Channel, Message } from '../../models/group.model';
 
           <div class="channels-list">
             <div
-              *ngFor="let channel of currentGroup.channels"
+              *ngFor="let channel of currentGroup?.channels"
               class="channel-item"
               [class.active]="currentChannel?.id === channel.id"
               (click)="selectChannel(channel)">
@@ -48,9 +48,9 @@ import { Group, Channel, Message } from '../../models/group.model';
         <div class="members-section">
           <h4>成员 ({{ getMemberCount() }})</h4>
           <div class="members-list">
-            <div *ngFor="let memberId of currentGroup.memberIds" class="member-item">
-              {{ getMemberUsername(memberId) }}
-              <span *ngIf="isGroupAdmin(memberId)" class="admin-label">管理员</span>
+            <div *ngFor="let member of currentGroup?.memberIds" class="member-item">
+              {{ getMemberUsername(member._id || member.id || member) }}
+              <span *ngIf="isGroupAdmin(member._id || member.id || member)" class="admin-label">管理员</span>
             </div>
           </div>
         </div>
@@ -136,7 +136,7 @@ import { Group, Channel, Message } from '../../models/group.model';
           <div class="users-to-add">
             <div *ngFor="let user of usersNotInGroup" class="user-option">
               <span>{{ user.username }} ({{ user.email }})</span>
-              <button class="btn btn-primary btn-small" (click)="addUserToGroup(user.id)">
+              <button *ngIf="user._id || user.id" class="btn btn-primary btn-small" (click)="addUserToGroup(user._id || user.id!)">
                 添加
               </button>
             </div>
@@ -155,12 +155,12 @@ import { Group, Channel, Message } from '../../models/group.model';
         <div class="modal-content">
           <h3>管理成员</h3>
           <div class="members-management">
-            <div *ngFor="let memberId of currentGroup.memberIds" class="member-management-item">
-              <span>{{ getMemberUsername(memberId) }}</span>
+            <div *ngFor="let member of currentGroup?.memberIds" class="member-management-item">
+              <span>{{ getMemberUsername(member._id || member.id || member) }}</span>
               <button
-                *ngIf="memberId !== currentUser?.id && !isGroupAdmin(memberId)"
+                *ngIf="(member._id || member.id || member) !== currentUser?.id && !isGroupAdmin(member._id || member.id || member)"
                 class="btn btn-danger btn-small"
-                (click)="removeMember(memberId)">
+                (click)="removeMember(member._id || member.id || member)">
                 移除
               </button>
             </div>
@@ -429,16 +429,28 @@ export class ChatComponent implements OnInit, OnDestroy {
     private router: Router,
     private authService: AuthService,
     private groupService: GroupService
-  ) {}
+  ) {
+    console.log('ChatComponent constructor called');
+  }
+
+  getCurrentUrl(): string {
+    return this.router.url;
+  }
 
   ngOnInit(): void {
+    console.log('ChatComponent ngOnInit called');
     this.currentUser = this.authService.getCurrentUser();
+    console.log('Current user:', this.currentUser);
     this.loadAllUsers();
 
     this.routeSubscription = this.route.params.subscribe(params => {
+      console.log('Route params received:', params);
       const groupId = params['id'];
+      console.log('Group ID from params:', groupId);
       if (groupId) {
         this.loadGroup(groupId);
+      } else {
+        console.log('No group ID found in params');
       }
     });
   }
@@ -448,17 +460,33 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   loadGroup(groupId: string): void {
-    this.groupService.getAllGroups().subscribe(groups => {
-      this.currentGroup = groups.find(g => g.id === groupId) || null;
-      if (this.currentGroup && this.currentGroup.channels.length > 0) {
-        this.selectChannel(this.currentGroup.channels[0]);
+    console.log('Loading group with ID:', groupId);
+    this.groupService.getAllGroups().subscribe({
+      next: (groups) => {
+        console.log('All groups:', groups);
+        this.currentGroup = groups.find(g => (g._id === groupId || g.id === groupId)) || null;
+        console.log('Found group:', this.currentGroup);
+        if (this.currentGroup && this.currentGroup.channels.length > 0) {
+          this.selectChannel(this.currentGroup.channels[0]);
+        }
+      },
+      error: (error) => {
+        console.error('Error loading groups:', error);
+        this.currentGroup = null;
       }
     });
   }
 
   loadAllUsers(): void {
-    this.authService.getAllUsers().subscribe(users => {
-      this.allUsers = users;
+    this.authService.getAllUsers().subscribe({
+      next: (users) => {
+        this.allUsers = users;
+        console.log('All users loaded:', users);
+      },
+      error: (error) => {
+        console.error('Error loading users:', error);
+        this.allUsers = [];
+      }
     });
   }
 
@@ -468,8 +496,10 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   loadMessages(): void {
-    if (this.currentChannel && this.currentGroup) {
-      this.groupService.getChannelMessages(this.currentGroup.id, this.currentChannel.id).subscribe(messages => {
+    if (this.currentChannel && this.currentGroup && (this.currentGroup.id || this.currentGroup._id) && (this.currentChannel.id || this.currentChannel._id)) {
+      const groupId = this.currentGroup.id || this.currentGroup._id!;
+      const channelId = this.currentChannel.id || this.currentChannel._id!;
+      this.groupService.getChannelMessages(groupId, channelId).subscribe(messages => {
         this.messages = messages;
       });
     }
@@ -478,7 +508,9 @@ export class ChatComponent implements OnInit, OnDestroy {
   sendMessage(): void {
     if (!this.newMessage.trim() || !this.currentChannel || !this.currentGroup) return;
 
-    this.groupService.sendMessage(this.currentGroup.id, this.currentChannel.id, this.newMessage).subscribe(message => {
+    const groupId = this.currentGroup.id || this.currentGroup._id!;
+    const channelId = this.currentChannel.id || this.currentChannel._id!;
+    this.groupService.sendMessage(groupId, channelId, this.newMessage).subscribe(message => {
       this.messages.push(message);
       this.newMessage = '';
     });
@@ -487,7 +519,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   createChannel(): void {
     if (!this.newChannelName.trim() || !this.currentGroup) return;
 
-    this.groupService.createChannel(this.currentGroup.id, {
+    const groupId = this.currentGroup.id || this.currentGroup._id!;
+    this.groupService.createChannel(groupId, {
       name: this.newChannelName,
       description: this.newChannelDescription
     }).subscribe(channel => {
@@ -505,11 +538,23 @@ export class ChatComponent implements OnInit, OnDestroy {
   addUserToGroup(userId: string): void {
     if (!this.currentGroup) return;
 
-    this.groupService.addUserToGroup(this.currentGroup.id, userId).subscribe(success => {
-      if (success) {
-        this.currentGroup!.memberIds.push(userId);
-        this.showAddUser = false;
-        alert('用户已添加到群组');
+    const groupId = this.currentGroup.id || this.currentGroup._id!;
+    console.log('Adding user to group:', { groupId, userId, currentGroup: this.currentGroup });
+
+    this.groupService.addUserToGroup(groupId, userId).subscribe({
+      next: (success) => {
+        console.log('Add user response:', success);
+        if (success) {
+          this.currentGroup!.memberIds.push(userId);
+          this.showAddUser = false;
+          alert('用户已添加到群组');
+        } else {
+          alert('添加用户失败');
+        }
+      },
+      error: (error) => {
+        console.error('Add user error:', error);
+        alert('添加用户时发生错误：' + (error.message || '未知错误'));
       }
     });
   }
@@ -519,10 +564,22 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     const username = this.getMemberUsername(memberId);
     if (confirm(`确定要从群组中移除用户 ${username} 吗？`)) {
-      this.groupService.removeUserFromGroup(this.currentGroup.id, memberId).subscribe(success => {
-        if (success) {
-          this.currentGroup!.memberIds = this.currentGroup!.memberIds.filter(id => id !== memberId);
-          alert('用户已从群组中移除');
+      const groupId = this.currentGroup.id || this.currentGroup._id!;
+      console.log('Removing user from group:', { groupId, memberId });
+
+      this.groupService.removeUserFromGroup(groupId, memberId).subscribe({
+        next: (success) => {
+          console.log('Remove user response:', success);
+          if (success) {
+            this.currentGroup!.memberIds = this.currentGroup!.memberIds.filter(id => id !== memberId);
+            alert('用户已从群组中移除');
+          } else {
+            alert('移除用户失败');
+          }
+        },
+        error: (error) => {
+          console.error('Remove user error:', error);
+          alert('移除用户时发生错误：' + (error.message || '未知错误'));
         }
       });
     }
@@ -530,7 +587,31 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   get usersNotInGroup(): User[] {
     if (!this.currentGroup) return [];
-    return this.allUsers.filter(user => !this.currentGroup!.memberIds.includes(user.id));
+
+    console.log('Computing usersNotInGroup:', {
+      allUsers: this.allUsers.map(u => ({ _id: u._id, id: u.id, username: u.username })),
+      currentGroupMemberIds: this.currentGroup.memberIds,
+      currentGroup: this.currentGroup
+    });
+
+    // 获取群组成员的ID列表（支持对象和字符串格式）
+    const memberIds = this.currentGroup.memberIds.map(member =>
+      typeof member === 'string' ? member : (member._id || member.id)
+    );
+
+    console.log('Member IDs:', memberIds);
+
+    // 过滤出不在群组中的用户（同时检查_id和id字段）
+    const filtered = this.allUsers.filter(user => {
+      const userId = user._id || user.id;
+      const isInGroup = memberIds.includes(userId);
+      console.log(`User ${user.username} (${userId}): in group = ${isInGroup}`);
+      return !isInGroup;
+    });
+
+    console.log('Filtered users not in group:', filtered.map(u => ({ _id: u._id, id: u.id, username: u.username })));
+
+    return filtered;
   }
 
   canManageGroup(): boolean {
@@ -542,20 +623,39 @@ export class ChatComponent implements OnInit, OnDestroy {
     return this.canManageGroup();
   }
 
-  isGroupAdmin(userId: string): boolean {
-    return this.currentGroup ? this.currentGroup.adminIds.includes(userId) : false;
+  isGroupAdmin(userIdOrObject: string | any): boolean {
+    if (!this.currentGroup) return false;
+
+    // 获取用户ID（支持字符串ID或对象）
+    const userId = typeof userIdOrObject === 'string' ? userIdOrObject : (userIdOrObject?._id || userIdOrObject?.id);
+
+    return this.currentGroup.adminIds.includes(userId);
   }
 
   getMemberCount(): number {
     return this.currentGroup ? this.currentGroup.memberIds.length : 0;
   }
 
-  getMemberUsername(userId: string): string {
-    const user = this.allUsers.find(u => u.id === userId);
-    return user ? user.username : 'Unknown User';
+  getMemberUsername(userIdOrObject: string | any): string {
+    console.log('getMemberUsername called with:', userIdOrObject, 'type:', typeof userIdOrObject);
+
+    // 如果传入的是对象且有username属性，直接返回用户名
+    if (typeof userIdOrObject === 'object' && userIdOrObject?.username) {
+      console.log('Returning username from object:', userIdOrObject.username);
+      return userIdOrObject.username;
+    }
+
+    // 如果传入的是字符串ID，查找用户
+    const userId = typeof userIdOrObject === 'string' ? userIdOrObject : (userIdOrObject?._id || userIdOrObject?.id);
+    console.log('Searching for userId:', userId);
+    const user = this.allUsers.find(u => (u._id || u.id) === userId);
+    const result = user ? user.username : 'Unknown User';
+    console.log('Found user:', user, 'returning:', result);
+    return result;
   }
 
-  formatTime(timestamp: Date): string {
+  formatTime(timestamp: Date | undefined): string {
+    if (!timestamp) return '';
     const date = new Date(timestamp);
     return date.toLocaleTimeString('zh-CN', {
       hour: '2-digit',
