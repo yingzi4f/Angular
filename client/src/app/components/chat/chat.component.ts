@@ -38,9 +38,17 @@ import { Group, Channel, Message } from '../../models/group.model';
             <div
               *ngFor="let channel of currentGroup?.channels"
               class="channel-item"
-              [class.active]="currentChannel?.id === channel.id"
-              (click)="selectChannel(channel)">
-              # {{ channel.name }}
+              [class.active]="currentChannel?.id === channel.id">
+              <span (click)="selectChannel(channel)" class="channel-name">
+                # {{ channel.name }}
+              </span>
+              <button
+                *ngIf="canManageChannels() && channel.name !== 'general'"
+                class="btn btn-danger btn-small channel-delete"
+                (click)="deleteChannel(channel)"
+                title="删除频道">
+                ×
+              </button>
             </div>
           </div>
         </div>
@@ -245,10 +253,12 @@ import { Group, Channel, Message } from '../../models/group.model';
 
     .channel-item {
       padding: 8px 12px;
-      cursor: pointer;
       border-radius: 4px;
       margin-bottom: 4px;
       transition: background-color 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .channel-item:hover {
@@ -257,6 +267,45 @@ import { Group, Channel, Message } from '../../models/group.model';
 
     .channel-item.active {
       background-color: #3498db;
+    }
+
+    .channel-name {
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .channel-delete {
+      background: transparent;
+      border: 1px solid #e74c3c;
+      color: #e74c3c;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      line-height: 1;
+      margin-left: 5px;
+      opacity: 0.7;
+      padding: 0;
+    }
+
+    .channel-delete:hover {
+      background: #e74c3c;
+      color: white;
+      opacity: 1;
+    }
+
+    .channel-item.active .channel-delete {
+      border-color: rgba(255, 255, 255, 0.7);
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .channel-item.active .channel-delete:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: white;
+      color: white;
     }
 
     .members-list {
@@ -628,6 +677,50 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.showCreateChannel = false;
     this.newChannelName = '';
     this.newChannelDescription = '';
+  }
+
+  deleteChannel(channel: Channel): void {
+    if (!this.currentGroup || !channel) return;
+
+    if (channel.name === 'general') {
+      alert('无法删除默认频道');
+      return;
+    }
+
+    if (confirm(`确定要删除频道 "#${channel.name}" 吗？此操作无法撤销，频道内的所有消息也将被删除。`)) {
+      const groupId = this.currentGroup.id || this.currentGroup._id!;
+      const channelId = channel.id || channel._id!;
+
+      this.groupService.deleteChannel(groupId, channelId).subscribe({
+        next: (response) => {
+          if (response.success) {
+            // 从本地群组数据中移除已删除的频道
+            if (this.currentGroup!.channels) {
+              this.currentGroup!.channels = this.currentGroup!.channels.filter(c =>
+                (c.id || c._id) !== channelId
+              );
+            }
+
+            // 如果删除的是当前频道，切换到第一个可用频道
+            if (this.currentChannel && (this.currentChannel.id || this.currentChannel._id) === channelId) {
+              this.currentChannel = null;
+              this.messages = [];
+              if (this.currentGroup!.channels && this.currentGroup!.channels.length > 0) {
+                this.selectChannel(this.currentGroup!.channels[0]);
+              }
+            }
+
+            alert('频道已成功删除');
+          } else {
+            alert(response.message || '删除频道失败');
+          }
+        },
+        error: (error) => {
+          console.error('删除频道错误:', error);
+          alert('删除频道时发生错误：' + (error.error?.message || error.message || '未知错误'));
+        }
+      });
+    }
   }
 
   addUserToGroup(userId: string): void {

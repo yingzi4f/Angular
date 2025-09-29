@@ -317,6 +317,21 @@ class MongoDataStore {
     }
   }
 
+  async deleteChannel(channelId) {
+    try {
+      // 删除频道中的所有消息
+      await Message.deleteMany({ channelId: channelId });
+
+      // 删除频道
+      const result = await Channel.findByIdAndDelete(channelId);
+
+      return !!result;
+    } catch (error) {
+      console.error('删除频道失败:', error);
+      throw error;
+    }
+  }
+
   // 消息管理方法
   async getChannelMessages(channelId, options = {}) {
     try {

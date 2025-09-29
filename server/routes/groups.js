@@ -442,6 +442,65 @@ router.post('/:groupId/channels', async (req, res) => {
   }
 });
 
+// 删除频道
+router.delete('/:groupId/channels/:channelId', async (req, res) => {
+  try {
+    const { groupId, channelId } = req.params;
+
+    const group = await dataStore.findGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: '群组未找到'
+      });
+    }
+
+    if (!hasPermission(req.user, group, 'manage')) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足'
+      });
+    }
+
+    const channel = await dataStore.findChannelById(channelId);
+    if (!channel) {
+      return res.status(404).json({
+        success: false,
+        message: '频道未找到'
+      });
+    }
+
+    // 防止删除general频道（默认频道）
+    if (channel.name === 'general') {
+      return res.status(400).json({
+        success: false,
+        message: '不能删除默认频道'
+      });
+    }
+
+    const success = await dataStore.deleteChannel(channelId);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: '频道已删除'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: '删除频道失败'
+      });
+    }
+
+  } catch (error) {
+    console.error('Delete channel error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
+
 // 添加成员到群组
 router.post('/:groupId/members', async (req, res) => {
   try {

@@ -164,4 +164,9 @@ export class GroupService {
   demoteUserFromGroupAdmin(groupId: string, userId: string): Observable<{ success: boolean; message: string }> {
     return this.http.put<{ success: boolean; message: string }>(`${this.API_URL}/groups/${groupId}/members/${userId}/demote`, {});
   }
+
+  // 删除频道
+  deleteChannel(groupId: string, channelId: string): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.API_URL}/groups/${groupId}/channels/${channelId}`);
+  }
 }
