@@ -757,7 +757,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   canManageGroup(): boolean {
-    if (!this.currentGroup || !this.currentUser) return false;
+    if (!this.currentGroup || !this.currentUser || !this.currentUser.id) return false;
 
     // 检查是否是超级管理员
     if (this.authService.isSuperAdmin()) return true;
@@ -765,7 +765,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     // 检查是否是群组管理员（考虑populate后的对象格式）
     return this.currentGroup.adminIds.some(admin => {
       const adminId = admin._id ? admin._id.toString() : admin.toString();
-      return adminId === this.currentUser!.id.toString();
+      return adminId === this.currentUser!.id!.toString();
     });
   }
 
