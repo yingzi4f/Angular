@@ -40,8 +40,8 @@ import { FormsModule } from '@angular/forms';
               <h3>{{ group.name }}</h3>
               <p>{{ group.description }}</p>
               <div class="group-stats">
-                <span>{{ group.memberIds.length }} 成员</span>
-                <span>{{ group.channels.length }} 频道</span>
+                <span>{{ group.memberIds?.length || 0 }} 成员</span>
+                <span>{{ group.channels?.length || 0 }} 频道</span>
               </div>
               <div *ngIf="isGroupAdminOf(group)" class="admin-badge">管理员</div>
             </div>
@@ -67,8 +67,8 @@ import { FormsModule } from '@angular/forms';
               <h3>{{ group.name }}</h3>
               <p>{{ group.description }}</p>
               <div class="group-stats">
-                <span>{{ group.memberIds.length }} 成员</span>
-                <span>{{ group.channels.length }} 频道</span>
+                <span>{{ group.memberIds?.length || 0 }} 成员</span>
+                <span>{{ group.channels?.length || 0 }} 频道</span>
               </div>
               <button class="btn btn-primary btn-small" (click)="applyToGroup(group)">
                 申请加入
@@ -594,12 +594,7 @@ export class DashboardComponent implements OnInit {
   }
 
   loadUserGroups(): void {
-    // For super admin, load all groups; for others, load user groups
-    const groupsObservable = this.isSuperAdmin()
-      ? this.groupService.getAllGroups()
-      : this.groupService.getUserGroups();
-
-    groupsObservable.subscribe({
+    this.groupService.getUserGroups().subscribe({
       next: groups => {
         console.log('User groups loaded:', groups);
         console.log('First group structure:', groups[0]);

@@ -29,9 +29,15 @@
       "Bash(kill:*)",
       "Bash(pkill:*)",
       "Bash(sudo systemctl start:*)",
-      "Bash(mongod:*)"
+      "Bash(mongod:*)",
+      "mcp__playwright__playwright_press_key",
+      "mcp__playwright__playwright_custom_user_agent",
+      "mcp__playwright__playwright_close",
+      "Bash(npm run:*)",
+      "Bash(nc localhost 3000)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "outputStyle": "codex"
 }

@@ -92,7 +92,7 @@ import { Group, Channel, Message } from '../../models/group.model';
               name="newMessage"
               placeholder="输入消息..."
               class="message-input">
-            <button type="submit" class="btn btn-primary" (click)="sendMessage()">发送</button>
+            <button type="submit" class="btn btn-primary">发送</button>
           </form>
         </div>
       </div>
@@ -439,6 +439,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     console.log('ChatComponent ngOnInit called');
+    // Fixed double event binding issue - no more duplicate messages
     this.currentUser = this.authService.getCurrentUser();
     console.log('Current user:', this.currentUser);
     this.loadAllUsers();
@@ -536,11 +537,13 @@ export class ChatComponent implements OnInit, OnDestroy {
         // 使用已知的general频道ID
         const defaultChannelId = '68d5ebaa3389ae60a065a181'; // general频道的固定ID
         console.log('Using default channel ID:', defaultChannelId);
+        console.log('Force recompile trigger');
         this.groupService.sendMessage(groupId, defaultChannelId, this.newMessage).subscribe({
           next: (message) => {
-            this.messages.push(message);
             this.newMessage = '';
             console.log('Message sent successfully:', message);
+            // Reload messages from server to avoid duplicates
+            this.loadMessages();
           },
           error: (error) => {
             console.error('Error sending message:', error);
@@ -556,9 +559,10 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     this.groupService.sendMessage(groupId, channelId, this.newMessage).subscribe({
       next: (message) => {
-        this.messages.push(message);
         this.newMessage = '';
         console.log('Message sent successfully:', message);
+        // Reload messages from server to avoid duplicates
+        this.loadMessages();
       },
       error: (error) => {
         console.error('Error sending message:', error);

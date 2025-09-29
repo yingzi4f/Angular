@@ -113,9 +113,20 @@ router.get('/all', async (req, res) => {
 
     const allGroups = await dataStore.getGroups();
 
+    // 为每个群组添加channels信息
+    const groupsWithChannels = await Promise.all(
+      allGroups.map(async (group) => {
+        const channels = await dataStore.getGroupChannels(group._id.toString());
+        return {
+          ...group.toObject(),
+          channels: channels
+        };
+      })
+    );
+
     res.json({
       success: true,
-      groups: allGroups
+      groups: groupsWithChannels
     });
 
   } catch (error) {
@@ -141,9 +152,20 @@ router.get('/', async (req, res) => {
       );
     }
 
+    // 为每个群组添加channels信息
+    const groupsWithChannels = await Promise.all(
+      userGroups.map(async (group) => {
+        const channels = await dataStore.getGroupChannels(group._id.toString());
+        return {
+          ...group.toObject(),
+          channels: channels
+        };
+      })
+    );
+
     res.json({
       success: true,
-      groups: userGroups
+      groups: groupsWithChannels
     });
 
   } catch (error) {
@@ -195,6 +217,46 @@ router.post('/', async (req, res) => {
 });
 
 // PARAMETERIZED ROUTES AFTER STATIC ROUTES
+
+// 获取单个群组信息
+router.get('/:groupId', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    const group = await dataStore.findGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: '群组未找到'
+      });
+    }
+
+    if (!hasPermission(req.user, group, 'view')) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足'
+      });
+    }
+
+    // 获取群组的频道
+    const channels = await dataStore.getGroupChannels(groupId);
+
+    res.json({
+      success: true,
+      group: {
+        ...group.toObject(),
+        channels: channels
+      }
+    });
+
+  } catch (error) {
+    console.error('Get group error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
 
 // 申请加入群组
 router.post('/:groupId/apply', async (req, res) => {
@@ -311,7 +373,8 @@ router.post('/:groupId/channels', async (req, res) => {
 
     const newChannel = await dataStore.addChannelToGroup(groupId, {
       name,
-      description
+      description,
+      createdBy: req.user.id
     });
 
     res.status(201).json({
@@ -511,7 +574,7 @@ router.post('/:groupId/channels/:channelId/messages', async (req, res) => {
       });
     }
 
-    if (!channel.memberIds.includes(req.user.id)) {
+    if (!channel.memberIds.includes(req.user.id) && !req.user.roles.includes('super-admin')) {
       return res.status(403).json({
         success: false,
         message: '您不是该频道的成员'
@@ -521,6 +584,7 @@ router.post('/:groupId/channels/:channelId/messages', async (req, res) => {
     const message = await dataStore.addMessage({
       content,
       senderId: req.user.id,
+      senderUsername: req.user.username,
       channelId,
       type
     });
