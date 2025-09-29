@@ -186,7 +186,7 @@ router.put('/users/:id/promote', (req, res) => {
   }
 });
 
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id', require('../middleware/auth').authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
