@@ -548,6 +548,152 @@ router.delete('/:groupId/channels/:channelId', async (req, res) => {
   }
 });
 
+// 添加成员到频道
+router.post('/:groupId/channels/:channelId/members', async (req, res) => {
+  try {
+    const { groupId, channelId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: '用户ID不能为空'
+      });
+    }
+
+    const group = await dataStore.findGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: '群组未找到'
+      });
+    }
+
+    if (!hasPermission(req.user, group, 'manage')) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足'
+      });
+    }
+
+    const channel = await dataStore.findChannelById(channelId);
+    if (!channel) {
+      return res.status(404).json({
+        success: false,
+        message: '频道未找到'
+      });
+    }
+
+    const user = await dataStore.findUserById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: '用户未找到'
+      });
+    }
+
+    // 检查用户是否已在频道中
+    const isAlreadyMember = channel.memberIds.some(memberId => {
+      const id = memberId._id ? memberId._id.toString() : memberId.toString();
+      return id === userId.toString();
+    });
+
+    if (isAlreadyMember) {
+      return res.status(400).json({
+        success: false,
+        message: '用户已在频道中'
+      });
+    }
+
+    // 添加成员到频道
+    const success = await channel.addMember(userId);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: '用户已添加到频道'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: '添加用户失败'
+      });
+    }
+
+  } catch (error) {
+    console.error('Add user to channel error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
+
+// 从频道移除成员
+router.delete('/:groupId/channels/:channelId/members/:userId', async (req, res) => {
+  try {
+    const { groupId, channelId, userId } = req.params;
+
+    const group = await dataStore.findGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: '群组未找到'
+      });
+    }
+
+    if (!hasPermission(req.user, group, 'manage')) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足'
+      });
+    }
+
+    const channel = await dataStore.findChannelById(channelId);
+    if (!channel) {
+      return res.status(404).json({
+        success: false,
+        message: '频道未找到'
+      });
+    }
+
+    // 检查用户是否在频道中
+    const isMember = channel.memberIds.some(memberId => {
+      const id = memberId._id ? memberId._id.toString() : memberId.toString();
+      return id === userId.toString();
+    });
+
+    if (!isMember) {
+      return res.status(400).json({
+        success: false,
+        message: '用户不在频道中'
+      });
+    }
+
+    // 从频道移除成员
+    const success = await channel.removeMember(userId);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: '用户已从频道移除'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: '移除用户失败'
+      });
+    }
+
+  } catch (error) {
+    console.error('Remove user from channel error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
+
 // 添加成员到群组
 router.post('/:groupId/members', async (req, res) => {
   try {
