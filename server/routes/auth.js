@@ -162,6 +162,11 @@ router.put('/users/:id/promote', (req, res) => {
       });
     }
 
+    // 确保user.roles存在并且是数组
+    if (!user.roles || !Array.isArray(user.roles)) {
+      user.roles = ['user'];
+    }
+
     if (!user.roles.includes(role)) {
       user.roles.push(role);
       dataStore.updateUser(id, { roles: user.roles });
