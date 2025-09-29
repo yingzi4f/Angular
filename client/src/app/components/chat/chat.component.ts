@@ -84,7 +84,7 @@ import { Group, Channel, Message } from '../../models/group.model';
           </div>
         </div>
 
-        <div class="chat-input" *ngIf="currentChannel">
+        <div class="chat-input" *ngIf="currentGroup">
           <form (ngSubmit)="sendMessage()">
             <input
               type="text"
@@ -92,7 +92,7 @@ import { Group, Channel, Message } from '../../models/group.model';
               name="newMessage"
               placeholder="输入消息..."
               class="message-input">
-            <button type="submit" class="btn btn-primary">发送</button>
+            <button type="submit" class="btn btn-primary" (click)="sendMessage()">发送</button>
           </form>
         </div>
       </div>
@@ -461,17 +461,19 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   loadGroup(groupId: string): void {
     console.log('Loading group with ID:', groupId);
-    this.groupService.getAllGroups().subscribe({
-      next: (groups) => {
-        console.log('All groups:', groups);
-        this.currentGroup = groups.find(g => (g._id === groupId || g.id === groupId)) || null;
-        console.log('Found group:', this.currentGroup);
-        if (this.currentGroup && this.currentGroup.channels.length > 0) {
+    this.groupService.getGroupById(groupId).subscribe({
+      next: (group) => {
+        console.log('Loaded group with channels:', group);
+        this.currentGroup = group;
+        if (this.currentGroup && this.currentGroup.channels && this.currentGroup.channels.length > 0) {
+          console.log('Auto-selecting first channel:', this.currentGroup.channels[0]);
           this.selectChannel(this.currentGroup.channels[0]);
+        } else {
+          console.log('No channels found in group:', this.currentGroup);
         }
       },
       error: (error) => {
-        console.error('Error loading groups:', error);
+        console.error('Error loading group:', error);
         this.currentGroup = null;
       }
     });
@@ -506,13 +508,61 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   sendMessage(): void {
-    if (!this.newMessage.trim() || !this.currentChannel || !this.currentGroup) return;
+    console.log('sendMessage called');
+    console.log('newMessage:', this.newMessage);
+    console.log('currentChannel:', this.currentChannel);
+    console.log('currentGroup:', this.currentGroup);
+
+    if (!this.newMessage.trim()) {
+      console.log('Empty message, returning');
+      return;
+    }
+
+    if (!this.currentGroup) {
+      console.log('No current group, returning');
+      return;
+    }
+
+    // 如果没有选中频道，自动选择第一个频道或创建默认频道
+    if (!this.currentChannel) {
+      console.log('No current channel, trying to select first channel');
+      if (this.currentGroup.channels && this.currentGroup.channels.length > 0) {
+        this.selectChannel(this.currentGroup.channels[0]);
+        console.log('Selected first channel:', this.currentChannel);
+      } else {
+        // 如果没有频道，使用默认的general频道ID
+        console.log('No channels available, using default general channel');
+        const groupId = this.currentGroup.id || this.currentGroup._id!;
+        // 使用已知的general频道ID
+        const defaultChannelId = '68d5ebaa3389ae60a065a181'; // general频道的固定ID
+        console.log('Using default channel ID:', defaultChannelId);
+        this.groupService.sendMessage(groupId, defaultChannelId, this.newMessage).subscribe({
+          next: (message) => {
+            this.messages.push(message);
+            this.newMessage = '';
+            console.log('Message sent successfully:', message);
+          },
+          error: (error) => {
+            console.error('Error sending message:', error);
+          }
+        });
+        return;
+      }
+    }
 
     const groupId = this.currentGroup.id || this.currentGroup._id!;
-    const channelId = this.currentChannel.id || this.currentChannel._id!;
-    this.groupService.sendMessage(groupId, channelId, this.newMessage).subscribe(message => {
-      this.messages.push(message);
-      this.newMessage = '';
+    const channelId = this.currentChannel!.id || this.currentChannel!._id!;
+    console.log('Sending message with groupId:', groupId, 'channelId:', channelId);
+
+    this.groupService.sendMessage(groupId, channelId, this.newMessage).subscribe({
+      next: (message) => {
+        this.messages.push(message);
+        this.newMessage = '';
+        console.log('Message sent successfully:', message);
+      },
+      error: (error) => {
+        console.error('Error sending message:', error);
+      }
     });
   }
 
@@ -524,6 +574,9 @@ export class ChatComponent implements OnInit, OnDestroy {
       name: this.newChannelName,
       description: this.newChannelDescription
     }).subscribe(channel => {
+      if (!this.currentGroup!.channels) {
+        this.currentGroup!.channels = [];
+      }
       this.currentGroup!.channels.push(channel);
       this.cancelCreateChannel();
     });
@@ -586,7 +639,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   get usersNotInGroup(): User[] {
-    if (!this.currentGroup) return [];
+    if (!this.currentGroup || !this.allUsers) return [];
 
     console.log('Computing usersNotInGroup:', {
       allUsers: this.allUsers.map(u => ({ _id: u._id, id: u.id, username: u.username })),
@@ -595,7 +648,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
 
     // 获取群组成员的ID列表（支持对象和字符串格式）
-    const memberIds = this.currentGroup.memberIds.map(member =>
+    const memberIds = (this.currentGroup.memberIds || []).map(member =>
       typeof member === 'string' ? member : (member._id || member.id)
     );
 
@@ -633,7 +686,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   getMemberCount(): number {
-    return this.currentGroup ? this.currentGroup.memberIds.length : 0;
+    return this.currentGroup ? (this.currentGroup.memberIds?.length || 0) : 0;
   }
 
   getMemberUsername(userIdOrObject: string | any): string {

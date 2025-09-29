@@ -27,9 +27,16 @@ export class GroupService {
   }
 
   getAllGroups(): Observable<Group[]> {
-    return this.http.get<{ success: boolean; groups: Group[] }>(`${this.API_URL}/groups/all`)
+    return this.http.get<{ success: boolean; groups: Group[] }>(`${this.API_URL}/groups`)
       .pipe(
         map(response => response.groups || [])
+      );
+  }
+
+  getGroupById(groupId: string): Observable<Group> {
+    return this.http.get<{ success: boolean; group: Group }>(`${this.API_URL}/groups/${groupId}`)
+      .pipe(
+        map(response => response.group)
       );
   }
 
