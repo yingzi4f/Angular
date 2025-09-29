@@ -120,8 +120,8 @@ import { FormsModule } from '@angular/forms';
           </div>
         </div>
 
-        <!-- Super Admin Panel -->
-        <div *ngIf="isSuperAdmin()" class="admin-section">
+        <!-- Admin Panel for Group Admins and Super Admins -->
+        <div *ngIf="canManageGroups()" class="admin-section">
           <h2>管理面板</h2>
 
           <div class="admin-tabs">
@@ -138,6 +138,7 @@ import { FormsModule } from '@angular/forms';
               群组管理
             </button>
             <button
+              *ngIf="isSuperAdmin()"
               class="tab-btn"
               [class.active]="activeTab === 'create-user'"
               (click)="activeTab = 'create-user'">
@@ -154,13 +155,13 @@ import { FormsModule } from '@angular/forms';
                 <span class="roles">{{ user.roles.join(', ') }}</span>
                 <div class="user-actions">
                   <button
-                    *ngIf="!user.roles.includes('group-admin')"
+                    *ngIf="isSuperAdmin() && !user.roles.includes('group-admin')"
                     class="btn btn-small btn-primary"
                     (click)="promoteToGroupAdmin(user)">
                     提升为群组管理员
                   </button>
                   <button
-                    *ngIf="user.id !== currentUser?.id"
+                    *ngIf="isSuperAdmin() && user.id !== currentUser?.id"
                     class="btn btn-small btn-danger"
                     (click)="deleteUser(user)">
                     删除用户
