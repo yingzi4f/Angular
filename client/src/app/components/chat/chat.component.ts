@@ -1042,7 +1042,10 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     // 检查是否是群组管理员（考虑populate后的对象格式）
     return this.currentGroup.adminIds.some(admin => {
-      const adminId = admin._id ? admin._id.toString() : admin.toString();
+      // 处理各种可能的ID格式
+      const adminId = admin && typeof admin === 'object' ?
+        (admin._id ? admin._id.toString() : (admin.id ? admin.id.toString() : '')) :
+        admin.toString();
       return adminId === this.currentUser!.id!.toString();
     });
   }
@@ -1063,7 +1066,10 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     // 检查是否是群组管理员（考虑populate后的对象格式）
     const isAdmin = this.currentGroup.adminIds.some(admin => {
-      const adminId = admin._id ? admin._id.toString() : admin.toString();
+      // 处理各种可能的ID格式
+      const adminId = admin && typeof admin === 'object' ?
+        (admin._id ? admin._id.toString() : (admin.id ? admin.id.toString() : '')) :
+        admin.toString();
       console.log('Comparing adminId:', adminId, 'with userId:', userId.toString());
       return adminId === userId.toString();
     });
