@@ -458,7 +458,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private authService: AuthService,
+    public authService: AuthService,
     private groupService: GroupService
   ) {
     console.log('ChatComponent constructor called');
@@ -685,11 +685,9 @@ export class ChatComponent implements OnInit, OnDestroy {
         next: (response) => {
           console.log('Promote user response:', response);
           if (response.success) {
-            // 添加用户到管理员列表
-            if (!this.currentGroup!.adminIds.includes(memberId)) {
-              this.currentGroup!.adminIds.push(memberId);
-            }
             alert('用户已成功提升为群组管理员');
+            // 重新加载群组数据以确保数据一致性
+            this.loadGroup(groupId);
           } else {
             alert(response.message || '提升用户失败');
           }
@@ -714,9 +712,9 @@ export class ChatComponent implements OnInit, OnDestroy {
         next: (response) => {
           console.log('Demote user response:', response);
           if (response.success) {
-            // 从管理员列表中移除用户
-            this.currentGroup!.adminIds = this.currentGroup!.adminIds.filter(id => id !== memberId);
             alert('用户的群组管理员权限已被撤销');
+            // 重新加载群组数据以确保数据一致性
+            this.loadGroup(groupId);
           } else {
             alert(response.message || '撤销权限失败');
           }
@@ -760,7 +758,15 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   canManageGroup(): boolean {
     if (!this.currentGroup || !this.currentUser) return false;
-    return this.currentGroup.adminIds.includes(this.currentUser.id) || this.authService.isSuperAdmin();
+
+    // 检查是否是超级管理员
+    if (this.authService.isSuperAdmin()) return true;
+
+    // 检查是否是群组管理员（考虑populate后的对象格式）
+    return this.currentGroup.adminIds.some(admin => {
+      const adminId = admin._id ? admin._id.toString() : admin.toString();
+      return adminId === this.currentUser!.id.toString();
+    });
   }
 
   canManageChannels(): boolean {
