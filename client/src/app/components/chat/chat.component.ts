@@ -43,13 +43,22 @@ import { Group, Channel, Message } from '../../models/group.model';
               <span (click)="selectChannel(channel)" class="channel-name">
                 # {{ channel.name }}
               </span>
-              <button
-                *ngIf="canManageChannels() && channel.name !== 'general'"
-                class="btn btn-danger btn-small channel-delete"
-                (click)="deleteChannel(channel)"
-                title="删除频道">
-                ×
-              </button>
+              <div class="channel-actions">
+                <button
+                  *ngIf="canManageChannels()"
+                  class="btn btn-primary btn-small channel-manage"
+                  (click)="openChannelMembersModal(channel)"
+                  title="管理频道成员">
+                  ⚙️
+                </button>
+                <button
+                  *ngIf="canManageChannels() && channel.name !== 'general'"
+                  class="btn btn-danger btn-small channel-delete"
+                  (click)="deleteChannel(channel)"
+                  title="删除频道">
+                  ×
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -233,6 +242,43 @@ import { Group, Channel, Message } from '../../models/group.model';
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary" (click)="showManageMembers = false">关闭</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manage Channel Members Modal -->
+      <div *ngIf="showChannelMembersModal" class="modal">
+        <div class="modal-content">
+          <h3>管理频道成员 - {{ selectedChannel?.name }}</h3>
+          <div class="channel-members-management">
+            <h4>添加成员到频道</h4>
+            <div class="users-to-add">
+              <div *ngFor="let user of usersNotInChannel" class="user-option">
+                <span>{{ getMemberUsername(user) }}</span>
+                <button *ngIf="user._id || user.id" class="btn btn-primary btn-small" (click)="addMemberToChannel(user._id || user.id!)">
+                  添加
+                </button>
+              </div>
+              <div *ngIf="usersNotInChannel.length === 0" class="no-users">
+                没有可添加的用户
+              </div>
+            </div>
+
+            <h4>频道成员</h4>
+            <div class="channel-members-list">
+              <div *ngFor="let member of selectedChannel?.memberIds" class="channel-member-item">
+                <span>{{ getMemberUsername(member) }}</span>
+                <button
+                  *ngIf="canManageChannels() && getMemberId(member) !== currentUser?.id"
+                  class="btn btn-danger btn-small"
+                  (click)="removeMemberFromChannel(getMemberId(member))">
+                  移除
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" (click)="showChannelMembersModal = false">关闭</button>
           </div>
         </div>
       </div>
@@ -647,6 +693,58 @@ import { Group, Channel, Message } from '../../models/group.model';
       color: #666;
       padding: 20px;
     }
+
+    .channel-actions {
+      display: flex;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .channel-manage {
+      background: transparent;
+      border: 1px solid #3498db;
+      color: #3498db;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      line-height: 1;
+      padding: 0;
+      opacity: 0.7;
+    }
+
+    .channel-manage:hover {
+      background: #3498db;
+      color: white;
+      opacity: 1;
+    }
+
+    .channel-members-management {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .channel-members-management h4 {
+      margin: 15px 0 10px 0;
+      color: #2c3e50;
+    }
+
+    .channel-member-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .channel-members-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
   `]
 })
 export class ChatComponent implements OnInit, OnDestroy {
@@ -665,6 +763,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   showCreateChannel = false;
   showAddUser = false;
   showManageMembers = false;
+  showChannelMembersModal = false;
+  selectedChannel: Channel | null = null;
   newChannelName = '';
   newChannelDescription = '';
 
@@ -1034,6 +1134,24 @@ export class ChatComponent implements OnInit, OnDestroy {
     return filtered;
   }
 
+  get usersNotInChannel(): User[] {
+    if (!this.selectedChannel || !this.allUsers || !this.selectedChannel.memberIds) return [];
+
+    // 获取频道成员的ID列表（支持对象和字符串格式）
+    const memberIds = this.selectedChannel.memberIds.map((member: any) =>
+      typeof member === 'string' ? member : (member._id || member.id)
+    );
+
+    // 过滤出不在频道中的用户（同时检查_id和id字段）
+    const filtered = this.allUsers.filter(user => {
+      const userId = user._id || user.id;
+      const isInChannel = memberIds.includes(userId);
+      return !isInChannel;
+    });
+
+    return filtered;
+  }
+
   canManageGroup(): boolean {
     if (!this.currentGroup || !this.currentUser || !this.currentUser.id) return false;
 
@@ -1144,6 +1262,59 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.selectedImage = null;
     if (this.fileInput && this.fileInput.nativeElement) {
       this.fileInput.nativeElement.value = '';
+    }
+  }
+
+  // 频道成员管理
+  openChannelMembersModal(channel: Channel): void {
+    this.selectedChannel = channel;
+    this.showChannelMembersModal = true;
+  }
+
+  addMemberToChannel(userId: string): void {
+    if (!this.currentGroup || !this.selectedChannel) return;
+
+    const groupId = this.currentGroup.id || this.currentGroup._id!;
+    const channelId = this.selectedChannel.id || this.selectedChannel._id!;
+
+    this.groupService.addMemberToChannel(groupId, channelId, userId).subscribe({
+      next: (response) => {
+        if (response.success) {
+          alert('用户已添加到频道');
+          // 这里可以更新频道成员列表，如果需要的话
+        } else {
+          alert(response.message || '添加用户失败');
+        }
+      },
+      error: (error) => {
+        console.error('添加用户到频道错误:', error);
+        alert('添加用户到频道时发生错误：' + (error.error?.message || error.message || '未知错误'));
+      }
+    });
+  }
+
+  removeMemberFromChannel(userId: string): void {
+    if (!this.currentGroup || !this.selectedChannel) return;
+
+    const username = this.getMemberUsername(userId);
+    if (confirm(`确定要从频道 ${this.selectedChannel.name} 中移除用户 ${username} 吗？`)) {
+      const groupId = this.currentGroup.id || this.currentGroup._id!;
+      const channelId = this.selectedChannel.id || this.selectedChannel._id!;
+
+      this.groupService.removeMemberFromChannel(groupId, channelId, userId).subscribe({
+        next: (response) => {
+          if (response.success) {
+            alert('用户已从频道移除');
+            // 这里可以更新频道成员列表，如果需要的话
+          } else {
+            alert(response.message || '移除用户失败');
+          }
+        },
+        error: (error) => {
+          console.error('从频道移除用户错误:', error);
+          alert('从频道移除用户时发生错误：' + (error.error?.message || error.message || '未知错误'));
+        }
+      });
     }
   }
 

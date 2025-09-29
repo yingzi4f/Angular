@@ -205,6 +205,16 @@ export class GroupService {
     return this.http.delete<{ success: boolean; message: string }>(`${this.API_URL}/groups/${groupId}/channels/${channelId}`);
   }
 
+  // 添加成员到频道
+  addMemberToChannel(groupId: string, channelId: string, userId: string): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(`${this.API_URL}/groups/${groupId}/channels/${channelId}/members`, { userId });
+  }
+
+  // 从频道移除成员
+  removeMemberFromChannel(groupId: string, channelId: string, userId: string): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.API_URL}/groups/${groupId}/channels/${channelId}/members/${userId}`);
+  }
+
   // 删除群组
   deleteGroup(groupId: string): Observable<{ success: boolean; message: string }> {
     return this.http.delete<{ success: boolean; message: string }>(`${this.API_URL}/groups/${groupId}`);
