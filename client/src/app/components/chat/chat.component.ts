@@ -156,13 +156,32 @@ import { Group, Channel, Message } from '../../models/group.model';
           <h3>管理成员</h3>
           <div class="members-management">
             <div *ngFor="let member of currentGroup?.memberIds" class="member-management-item">
-              <span>{{ getMemberUsername(member._id || member.id || member) }}</span>
-              <button
-                *ngIf="(member._id || member.id || member) !== currentUser?.id && !isGroupAdmin(member._id || member.id || member)"
-                class="btn btn-danger btn-small"
-                (click)="removeMember(member._id || member.id || member)">
-                移除
-              </button>
+              <div class="member-info">
+                <span>{{ getMemberUsername(member._id || member.id || member) }}</span>
+                <span *ngIf="isGroupAdmin(member._id || member.id || member)" class="admin-label">群组管理员</span>
+              </div>
+              <div class="member-actions">
+                <!-- Super Admin can promote/demote group admins -->
+                <button
+                  *ngIf="authService.isSuperAdmin() && (member._id || member.id || member) !== currentUser?.id && !isGroupAdmin(member._id || member.id || member)"
+                  class="btn btn-success btn-small"
+                  (click)="promoteToGroupAdmin(member._id || member.id || member)">
+                  提升为管理员
+                </button>
+                <button
+                  *ngIf="authService.isSuperAdmin() && (member._id || member.id || member) !== currentUser?.id && isGroupAdmin(member._id || member.id || member)"
+                  class="btn btn-warning btn-small"
+                  (click)="demoteFromGroupAdmin(member._id || member.id || member)">
+                  撤销管理员
+                </button>
+                <!-- Regular remove member button -->
+                <button
+                  *ngIf="(member._id || member.id || member) !== currentUser?.id && !isGroupAdmin(member._id || member.id || member)"
+                  class="btn btn-danger btn-small"
+                  (click)="removeMember(member._id || member.id || member)">
+                  移除
+                </button>
+              </div>
             </div>
           </div>
           <div class="modal-actions">
@@ -401,6 +420,18 @@ import { Group, Channel, Message } from '../../models/group.model';
       border-bottom: 1px solid #eee;
     }
 
+    .member-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .member-actions {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
     .no-users {
       text-align: center;
       color: #666;
@@ -637,6 +668,62 @@ export class ChatComponent implements OnInit, OnDestroy {
         error: (error) => {
           console.error('Remove user error:', error);
           alert('移除用户时发生错误：' + (error.message || '未知错误'));
+        }
+      });
+    }
+  }
+
+  promoteToGroupAdmin(memberId: string): void {
+    if (!this.currentGroup) return;
+
+    const username = this.getMemberUsername(memberId);
+    if (confirm(`确定要提升用户 ${username} 为群组管理员吗？`)) {
+      const groupId = this.currentGroup.id || this.currentGroup._id!;
+      console.log('Promoting user to group admin:', { groupId, memberId });
+
+      this.groupService.promoteUserToGroupAdmin(groupId, memberId).subscribe({
+        next: (response) => {
+          console.log('Promote user response:', response);
+          if (response.success) {
+            // 添加用户到管理员列表
+            if (!this.currentGroup!.adminIds.includes(memberId)) {
+              this.currentGroup!.adminIds.push(memberId);
+            }
+            alert('用户已成功提升为群组管理员');
+          } else {
+            alert(response.message || '提升用户失败');
+          }
+        },
+        error: (error) => {
+          console.error('Promote user error:', error);
+          alert('提升用户时发生错误：' + (error.error?.message || error.message || '未知错误'));
+        }
+      });
+    }
+  }
+
+  demoteFromGroupAdmin(memberId: string): void {
+    if (!this.currentGroup) return;
+
+    const username = this.getMemberUsername(memberId);
+    if (confirm(`确定要撤销用户 ${username} 的群组管理员权限吗？`)) {
+      const groupId = this.currentGroup.id || this.currentGroup._id!;
+      console.log('Demoting user from group admin:', { groupId, memberId });
+
+      this.groupService.demoteUserFromGroupAdmin(groupId, memberId).subscribe({
+        next: (response) => {
+          console.log('Demote user response:', response);
+          if (response.success) {
+            // 从管理员列表中移除用户
+            this.currentGroup!.adminIds = this.currentGroup!.adminIds.filter(id => id !== memberId);
+            alert('用户的群组管理员权限已被撤销');
+          } else {
+            alert(response.message || '撤销权限失败');
+          }
+        },
+        error: (error) => {
+          console.error('Demote user error:', error);
+          alert('撤销权限时发生错误：' + (error.error?.message || error.message || '未知错误'));
         }
       });
     }

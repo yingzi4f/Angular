@@ -154,4 +154,14 @@ export class GroupService {
         map(response => response.user)
       );
   }
+
+  // 提升用户为群组管理员（仅限超级管理员）
+  promoteUserToGroupAdmin(groupId: string, userId: string): Observable<{ success: boolean; message: string }> {
+    return this.http.put<{ success: boolean; message: string }>(`${this.API_URL}/groups/${groupId}/members/${userId}/promote`, {});
+  }
+
+  // 撤销用户的群组管理员权限（仅限超级管理员）
+  demoteUserFromGroupAdmin(groupId: string, userId: string): Observable<{ success: boolean; message: string }> {
+    return this.http.put<{ success: boolean; message: string }>(`${this.API_URL}/groups/${groupId}/members/${userId}/demote`, {});
+  }
 }

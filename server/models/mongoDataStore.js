@@ -230,6 +230,53 @@ class MongoDataStore {
     }
   }
 
+  async promoteUserToGroupAdmin(groupId, userId) {
+    try {
+      const group = await Group.findById(groupId);
+      if (!group) return false;
+
+      // 检查用户是否已经是管理员
+      if (group.adminIds.includes(userId)) {
+        return false;
+      }
+
+      // 检查用户是否是成员
+      if (!group.memberIds.includes(userId)) {
+        return false;
+      }
+
+      // 将用户添加到管理员列表
+      group.adminIds.push(userId);
+      await group.save();
+
+      return true;
+    } catch (error) {
+      console.error('提升用户为群组管理员失败:', error);
+      throw error;
+    }
+  }
+
+  async demoteUserFromGroupAdmin(groupId, userId) {
+    try {
+      const group = await Group.findById(groupId);
+      if (!group) return false;
+
+      // 检查用户是否是管理员
+      if (!group.adminIds.includes(userId)) {
+        return false;
+      }
+
+      // 从管理员列表中移除用户（用户仍然保持成员身份）
+      group.adminIds = group.adminIds.filter(adminId => adminId.toString() !== userId.toString());
+      await group.save();
+
+      return true;
+    } catch (error) {
+      console.error('撤销群组管理员权限失败:', error);
+      throw error;
+    }
+  }
+
   // 频道管理方法
   async getGroupChannels(groupId) {
     try {

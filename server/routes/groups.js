@@ -6,11 +6,30 @@ const router = express.Router();
 function hasPermission(user, group, action) {
   switch (action) {
     case 'manage':
-      return user.roles.includes('super-admin') || group.adminIds.includes(user.id);
+      if (user.roles.includes('super-admin')) return true;
+
+      // 检查用户是否是群组管理员（考虑populate后的对象格式）
+      return group.adminIds.some(admin => {
+        const adminId = admin._id ? admin._id.toString() : admin.toString();
+        return adminId === user.id.toString();
+      });
+
     case 'view':
-      return user.roles.includes('super-admin') ||
-             group.memberIds.includes(user.id) ||
-             group.adminIds.includes(user.id);
+      if (user.roles.includes('super-admin')) return true;
+
+      // 检查用户是否是群组成员或管理员（考虑populate后的对象格式）
+      const isMember = group.memberIds.some(member => {
+        const memberId = member._id ? member._id.toString() : member.toString();
+        return memberId === user.id.toString();
+      });
+
+      const isAdmin = group.adminIds.some(admin => {
+        const adminId = admin._id ? admin._id.toString() : admin.toString();
+        return adminId === user.id.toString();
+      });
+
+      return isMember || isAdmin;
+
     default:
       return false;
   }
@@ -525,6 +544,151 @@ router.delete('/:groupId/members/:userId', async (req, res) => {
   }
 });
 
+// 提升成员为群组管理员（仅限超级管理员）
+router.put('/:groupId/members/:userId/promote', async (req, res) => {
+  try {
+    const { groupId, userId } = req.params;
+
+    // 检查权限：只有超级管理员可以提升群组管理员
+    if (!req.user.roles.includes('super-admin')) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足，只有超级管理员可以提升群组管理员'
+      });
+    }
+
+    const group = await dataStore.findGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: '群组未找到'
+      });
+    }
+
+    const user = await dataStore.findUserById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: '用户未找到'
+      });
+    }
+
+    // 检查用户是否已经是群组管理员
+    const isAlreadyAdmin = group.adminIds.some(adminId => {
+      const id = adminId._id ? adminId._id.toString() : adminId.toString();
+      return id === userId.toString();
+    });
+
+    if (isAlreadyAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: '该用户已经是群组管理员'
+      });
+    }
+
+    // 检查用户是否是群组成员
+    const isMember = group.memberIds.some(memberId => {
+      const id = memberId._id ? memberId._id.toString() : memberId.toString();
+      return id === userId.toString();
+    });
+
+    if (!isMember) {
+      return res.status(400).json({
+        success: false,
+        message: '用户必须先是群组成员才能被提升为管理员'
+      });
+    }
+
+    // 提升用户为群组管理员
+    const success = await dataStore.promoteUserToGroupAdmin(groupId, userId);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: '用户已成功提升为群组管理员'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: '提升用户失败'
+      });
+    }
+
+  } catch (error) {
+    console.error('Promote user to group admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
+
+// 撤销群组管理员权限（仅限超级管理员）
+router.put('/:groupId/members/:userId/demote', async (req, res) => {
+  try {
+    const { groupId, userId } = req.params;
+
+    // 检查权限：只有超级管理员可以撤销群组管理员权限
+    if (!req.user.roles.includes('super-admin')) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足，只有超级管理员可以撤销群组管理员权限'
+      });
+    }
+
+    const group = await dataStore.findGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: '群组未找到'
+      });
+    }
+
+    const user = await dataStore.findUserById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: '用户未找到'
+      });
+    }
+
+    // 检查用户是否是群组管理员
+    const isAdmin = group.adminIds.some(adminId => {
+      const id = adminId._id ? adminId._id.toString() : adminId.toString();
+      return id === userId.toString();
+    });
+
+    if (!isAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: '该用户不是群组管理员'
+      });
+    }
+
+    // 撤销群组管理员权限
+    const success = await dataStore.demoteUserFromGroupAdmin(groupId, userId);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: '用户的群组管理员权限已被撤销'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: '撤销权限失败'
+      });
+    }
+
+  } catch (error) {
+    console.error('Demote user from group admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
+
 // 获取频道消息
 router.get('/:groupId/channels/:channelId/messages', async (req, res) => {
   try {
@@ -554,11 +718,19 @@ router.get('/:groupId/channels/:channelId/messages', async (req, res) => {
       });
     }
 
-    if (!channel.memberIds.includes(req.user.id) && !req.user.roles.includes('super-admin')) {
-      return res.status(403).json({
-        success: false,
-        message: '您不是该频道的成员'
+    // 检查用户是否是频道成员（考虑populate后的对象格式）
+    if (!req.user.roles.includes('super-admin')) {
+      const isMember = channel.memberIds.some(member => {
+        const memberId = member._id ? member._id.toString() : member.toString();
+        return memberId === req.user.id.toString();
       });
+
+      if (!isMember) {
+        return res.status(403).json({
+          success: false,
+          message: '您不是该频道的成员'
+        });
+      }
     }
 
     const messages = await dataStore.getChannelMessages(channelId, limit);
@@ -606,11 +778,19 @@ router.post('/:groupId/channels/:channelId/messages', async (req, res) => {
       });
     }
 
-    if (!channel.memberIds.includes(req.user.id) && !req.user.roles.includes('super-admin')) {
-      return res.status(403).json({
-        success: false,
-        message: '您不是该频道的成员'
+    // 检查用户是否是频道成员（考虑populate后的对象格式）
+    if (!req.user.roles.includes('super-admin')) {
+      const isMember = channel.memberIds.some(member => {
+        const memberId = member._id ? member._id.toString() : member.toString();
+        return memberId === req.user.id.toString();
       });
+
+      if (!isMember) {
+        return res.status(403).json({
+          success: false,
+          message: '您不是该频道的成员'
+        });
+      }
     }
 
     const message = await dataStore.addMessage({
