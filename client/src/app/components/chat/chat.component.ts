@@ -158,7 +158,7 @@ import { Group, Channel, Message } from '../../models/group.model';
             <div *ngFor="let member of currentGroup?.memberIds" class="member-management-item">
               <div class="member-info">
                 <span>{{ getMemberUsername(member._id || member.id || member) }}</span>
-                <span *ngIf="isGroupAdmin(member._id || member.id || member)" class="admin-label">群组管理员</span>
+                <span *ngIf="isGroupAdmin(member._id || member.id || member)" class="admin-label group-admin">群组管理员</span>
               </div>
               <div class="member-actions">
                 <!-- Super Admin can promote/demote group admins -->
@@ -274,9 +274,16 @@ import { Group, Channel, Message } from '../../models/group.model';
 
     .admin-label {
       background-color: #f39c12;
-      padding: 2px 6px;
-      border-radius: 10px;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 12px;
       font-size: 10px;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+
+    .admin-label.group-admin {
+      background-color: #e74c3c;
     }
 
     .group-management {
@@ -778,8 +785,20 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     // 获取用户ID（支持字符串ID或对象）
     const userId = typeof userIdOrObject === 'string' ? userIdOrObject : (userIdOrObject?._id || userIdOrObject?.id);
+    if (!userId) return false;
 
-    return this.currentGroup.adminIds.includes(userId);
+    console.log('Checking isGroupAdmin for user:', userId);
+    console.log('Current group adminIds:', this.currentGroup.adminIds);
+
+    // 检查是否是群组管理员（考虑populate后的对象格式）
+    const isAdmin = this.currentGroup.adminIds.some(admin => {
+      const adminId = admin._id ? admin._id.toString() : admin.toString();
+      console.log('Comparing adminId:', adminId, 'with userId:', userId.toString());
+      return adminId === userId.toString();
+    });
+
+    console.log('isGroupAdmin result:', isAdmin);
+    return isAdmin;
   }
 
   getMemberCount(): number {
