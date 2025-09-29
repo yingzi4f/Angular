@@ -467,12 +467,25 @@ class MongoDataStore {
   // 群组申请管理方法
   async getAvailableGroups(userId) {
     try {
-      return await Group.find({
+      // 获取用户未加入的群组
+      const groups = await Group.find({
         $and: [
           { memberIds: { $ne: userId } },
           { adminIds: { $ne: userId } }
         ]
       }).populate('adminIds memberIds', 'username email avatar');
+
+      // 为每个群组获取频道数量
+      const GroupsWithChannelCount = await Promise.all(
+        groups.map(async (group) => {
+          const channelCount = await Channel.countDocuments({ groupId: group._id });
+          const groupObj = group.toObject();
+          groupObj.channels = [{ id: 'general', name: 'general' }]; // 模拟默认频道
+          return groupObj;
+        })
+      );
+
+      return GroupsWithChannelCount;
     } catch (error) {
       console.error('获取可申请群组失败:', error);
       throw error;
