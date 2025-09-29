@@ -190,6 +190,35 @@ class MongoDataStore {
     }
   }
 
+  async deleteGroup(groupId) {
+    try {
+      // 获取群组信息
+      const group = await Group.findById(groupId);
+      if (!group) return false;
+
+      // 删除群组的所有频道和相关消息
+      const channels = await Channel.find({ groupId: groupId });
+      for (const channel of channels) {
+        // 删除频道中的所有消息
+        await Message.deleteMany({ channelId: channel._id });
+      }
+
+      // 删除所有频道
+      await Channel.deleteMany({ groupId: groupId });
+
+      // 删除群组申请记录
+      await GroupApplication.deleteMany({ groupId: groupId });
+
+      // 删除群组
+      const result = await Group.findByIdAndDelete(groupId);
+
+      return !!result;
+    } catch (error) {
+      console.error('删除群组失败:', error);
+      throw error;
+    }
+  }
+
   async addUserToGroup(groupId, userId) {
     try {
       const group = await Group.findById(groupId);

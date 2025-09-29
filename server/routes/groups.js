@@ -309,6 +309,53 @@ router.get('/:groupId', async (req, res) => {
   }
 });
 
+// 删除群组
+router.delete('/:groupId', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    const group = await dataStore.findGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: '群组未找到'
+      });
+    }
+
+    // 权限检查：超级管理员可以删除所有群组，群组管理员只能删除自己创建的群组
+    const isSuperAdmin = req.user.roles.includes('super-admin');
+    const isCreator = group.createdBy.toString() === req.user.id.toString();
+
+    if (!isSuperAdmin && !isCreator) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足，只有超级管理员或群组创建者可以删除群组'
+      });
+    }
+
+    const success = await dataStore.deleteGroup(groupId);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: '群组已删除'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: '删除群组失败'
+      });
+    }
+
+  } catch (error) {
+    console.error('Delete group error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
+
 // 申请加入群组
 router.post('/:groupId/apply', async (req, res) => {
   try {

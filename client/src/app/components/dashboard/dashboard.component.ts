@@ -36,14 +36,23 @@ import { FormsModule } from '@angular/forms';
           </div>
 
           <div class="groups-list">
-            <div *ngFor="let group of groups" class="group-card" (click)="enterGroup(group)">
-              <h3>{{ group.name }}</h3>
-              <p>{{ group.description }}</p>
-              <div class="group-stats">
-                <span>{{ group.memberIds?.length || 0 }} 成员</span>
-                <span>{{ group.channels?.length || 0 }} 频道</span>
+            <div *ngFor="let group of groups" class="group-card">
+              <div class="group-content" (click)="enterGroup(group)">
+                <h3>{{ group.name }}</h3>
+                <p>{{ group.description }}</p>
+                <div class="group-stats">
+                  <span>{{ group.memberIds?.length || 0 }} 成员</span>
+                  <span>{{ group.channels?.length || 0 }} 频道</span>
+                </div>
+                <div *ngIf="isGroupAdminOf(group)" class="admin-badge">管理员</div>
               </div>
-              <div *ngIf="isGroupAdminOf(group)" class="admin-badge">管理员</div>
+              <button
+                *ngIf="canDeleteGroup(group)"
+                class="btn btn-danger btn-small group-delete"
+                (click)="deleteGroup(group, $event)"
+                title="删除群组">
+                删除
+              </button>
             </div>
           </div>
 
@@ -330,9 +339,28 @@ import { FormsModule } from '@angular/forms';
       border: 1px solid #ddd;
       border-radius: 8px;
       padding: 15px;
-      cursor: pointer;
       transition: all 0.3s;
       position: relative;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .group-content {
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .group-delete {
+      margin-left: 10px;
+      margin-top: 5px;
+      padding: 5px 10px;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .group-delete:hover {
+      opacity: 1;
     }
 
     .group-card:hover {
@@ -864,6 +892,55 @@ export class DashboardComponent implements OnInit {
 
   canCreateUsers(): boolean {
     return this.isSuperAdmin();
+  }
+
+  canDeleteGroup(group: Group): boolean {
+    if (!this.currentUser) return false;
+
+    // 超级管理员可以删除所有群组
+    if (this.isSuperAdmin()) return true;
+
+    // 群组创建者可以删除自己创建的群组
+    const createdById = group.createdBy?._id || group.createdBy?.id || group.createdBy;
+    return createdById === this.currentUser.id;
+  }
+
+  deleteGroup(group: Group, event: Event): void {
+    event.stopPropagation(); // 阻止卡片点击事件
+
+    if (!group) return;
+
+    const confirmMessage = `确定要删除群组 "${group.name}" 吗？此操作将删除群组内的所有频道和消息，且无法恢复。`;
+
+    if (confirm(confirmMessage)) {
+      const groupId = group._id || group.id!;
+
+      this.groupService.deleteGroup(groupId).subscribe({
+        next: (response) => {
+          if (response.success) {
+            alert('群组已成功删除');
+
+            // 从本地列表中移除已删除的群组
+            this.groups = this.groups.filter(g => (g._id || g.id) !== groupId);
+            this.allGroups = this.allGroups.filter(g => (g._id || g.id) !== groupId);
+
+            // 重新加载相关数据
+            this.loadUserGroups();
+            this.loadAvailableGroups();
+
+            if (this.isSuperAdmin()) {
+              this.loadAllGroups();
+            }
+          } else {
+            alert(response.message || '删除群组失败');
+          }
+        },
+        error: (error) => {
+          console.error('删除群组错误:', error);
+          alert('删除群组时发生错误：' + (error.error?.message || error.message || '未知错误'));
+        }
+      });
+    }
   }
 
   logout(): void {

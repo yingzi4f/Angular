@@ -169,4 +169,9 @@ export class GroupService {
   deleteChannel(groupId: string, channelId: string): Observable<{ success: boolean; message: string }> {
     return this.http.delete<{ success: boolean; message: string }>(`${this.API_URL}/groups/${groupId}/channels/${channelId}`);
   }
+
+  // 删除群组
+  deleteGroup(groupId: string): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.API_URL}/groups/${groupId}`);
+  }
 }
