@@ -112,10 +112,31 @@ router.get('/all', async (req, res) => {
     }
 
     const allGroups = await dataStore.getGroups();
+    let userGroups = [];
+
+    // 超级管理员可以看到所有群组，其他管理员只能看到自己管理/加入的群组
+    if (req.user.roles.includes('super-admin')) {
+      userGroups = allGroups;
+    } else {
+      userGroups = allGroups.filter(group => {
+        // 检查用户是否是群组成员或管理员（考虑populate后的对象格式）
+        const isMember = group.memberIds.some(member => {
+          const memberId = member._id ? member._id.toString() : member.toString();
+          return memberId === req.user.id.toString();
+        });
+
+        const isAdmin = group.adminIds.some(admin => {
+          const adminId = admin._id ? admin._id.toString() : admin.toString();
+          return adminId === req.user.id.toString();
+        });
+
+        return isMember || isAdmin;
+      });
+    }
 
     // 为每个群组添加channels信息
     const groupsWithChannels = await Promise.all(
-      allGroups.map(async (group) => {
+      userGroups.map(async (group) => {
         const channels = await dataStore.getGroupChannels(group._id.toString());
         return {
           ...group.toObject(),
@@ -147,9 +168,20 @@ router.get('/', async (req, res) => {
     if (req.user.roles.includes('super-admin')) {
       userGroups = allGroups;
     } else {
-      userGroups = allGroups.filter(group =>
-        group.memberIds.includes(req.user.id) || group.adminIds.includes(req.user.id)
-      );
+      userGroups = allGroups.filter(group => {
+        // 检查用户是否是群组成员或管理员（考虑populate后的对象格式）
+        const isMember = group.memberIds.some(member => {
+          const memberId = member._id ? member._id.toString() : member.toString();
+          return memberId === req.user.id.toString();
+        });
+
+        const isAdmin = group.adminIds.some(admin => {
+          const adminId = admin._id ? admin._id.toString() : admin.toString();
+          return adminId === req.user.id.toString();
+        });
+
+        return isMember || isAdmin;
+      });
     }
 
     // 为每个群组添加channels信息
