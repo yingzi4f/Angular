@@ -52,8 +52,8 @@ import { FormsModule } from '@angular/forms';
                 <h3>{{ group.name }}</h3>
                 <p>{{ group.description }}</p>
                 <div class="group-stats">
-                  <span>{{ group.memberIds?.length || 0 }} 成员</span>
-                  <span>{{ group.channels?.length || 0 }} 频道</span>
+                  <span>{{ (group.memberIds?.length || 0) }} 成员</span>
+                  <span>{{ (group.channels?.length || 0) }} 频道</span>
                 </div>
                 <div *ngIf="isGroupAdminOf(group)" class="admin-badge">管理员</div>
               </div>
@@ -87,8 +87,8 @@ import { FormsModule } from '@angular/forms';
               <h3>{{ group.name }}</h3>
               <p>{{ group.description }}</p>
               <div class="group-stats">
-                <span>{{ group.memberIds?.length || 0 }} 成员</span>
-                <span>{{ group.channels?.length || 0 }} 频道</span>
+                <span>{{ (group.memberIds?.length || 0) }} 成员</span>
+                <span>{{ (group.channels?.length || 0) }} 频道</span>
               </div>
               <button class="btn btn-primary btn-small" (click)="applyToGroup(group)">
                 申请加入
@@ -178,7 +178,7 @@ import { FormsModule } from '@angular/forms';
                 <p>{{ group.description }}</p>
                 <div class="group-details">
                   <span>创建者ID: {{ group.createdBy }}</span>
-                  <span>成员数: {{ group.memberIds.length }}</span>
+                  <span>成员数: {{ group.memberIds?.length || 0 }}</span>
                 </div>
               </div>
             </div>

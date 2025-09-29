@@ -51,4 +51,7 @@ export interface Message {
   createdAt?: Date;
   type: 'text' | 'image' | 'file';
   fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
 }

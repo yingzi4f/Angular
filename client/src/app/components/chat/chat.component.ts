@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { GroupService } from '../../services/group.service';
+import { SocketService } from '../../services/socket.service';
 import { User } from '../../models/user.model';
 import { Group, Channel, Message } from '../../models/group.model';
 
@@ -673,7 +674,8 @@ export class ChatComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     public authService: AuthService,
-    private groupService: GroupService
+    private groupService: GroupService,
+    private socketService: SocketService
   ) {
     console.log('ChatComponent constructor called');
   }
@@ -689,6 +691,10 @@ export class ChatComponent implements OnInit, OnDestroy {
     console.log('Current user:', this.currentUser);
     this.loadAllUsers();
 
+    // 初始化Socket连接
+    this.socketService.connect();
+    this.setupSocketListeners();
+
     this.routeSubscription = this.route.params.subscribe(params => {
       console.log('Route params received:', params);
       const groupId = params['id'];
@@ -703,6 +709,27 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routeSubscription.unsubscribe();
+    // 断开Socket连接
+    this.socketService.disconnect();
+  }
+
+  setupSocketListeners(): void {
+    // 监听新消息
+    this.socketService.onMessageReceived((message: Message) => {
+      console.log('收到新消息:', message);
+
+      // 只有当消息属于当前频道时才添加到消息列表
+      if (this.currentChannel && message.channelId === (this.currentChannel.id || this.currentChannel._id)) {
+        this.messages.push(message);
+        setTimeout(() => this.scrollToBottom(), 100);
+      }
+    });
+
+    // 监听错误
+    this.socketService.onError((error: any) => {
+      console.error('Socket错误:', error);
+      alert('连接错误: ' + error.message);
+    });
   }
 
   loadGroup(groupId: string): void {
@@ -739,7 +766,22 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   selectChannel(channel: Channel): void {
+    // 如果已经在一个频道中，先离开该频道
+    if (this.currentChannel) {
+      const currentChannelId = this.currentChannel.id || this.currentChannel._id;
+      if (currentChannelId) {
+        this.socketService.leaveChannel(currentChannelId);
+      }
+    }
+
     this.currentChannel = channel;
+
+    // 加入新频道
+    const newChannelId = channel.id || channel._id;
+    if (newChannelId) {
+      this.socketService.joinChannel(newChannelId);
+    }
+
     this.loadMessages();
   }
 
@@ -773,55 +815,24 @@ export class ChatComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.currentGroup) {
-      console.log('No current group, returning');
+    if (!this.currentGroup || !this.currentChannel) {
+      console.log('No current group or channel, returning');
       return;
     }
 
-    // 如果没有选中频道，自动选择第一个频道或创建默认频道
-    if (!this.currentChannel) {
-      console.log('No current channel, trying to select first channel');
-      if (this.currentGroup.channels && this.currentGroup.channels.length > 0) {
-        this.selectChannel(this.currentGroup.channels[0]);
-        console.log('Selected first channel:', this.currentChannel);
-      } else {
-        // 如果没有频道，使用默认的general频道ID
-        console.log('No channels available, using default general channel');
-        const groupId = this.currentGroup.id || this.currentGroup._id!;
-        // 使用已知的general频道ID
-        const defaultChannelId = '68d5ebaa3389ae60a065a181'; // general频道的固定ID
-        console.log('Using default channel ID:', defaultChannelId);
-        console.log('Force recompile trigger');
-        this.groupService.sendMessage(groupId, defaultChannelId, this.newMessage).subscribe({
-          next: (message) => {
-            this.newMessage = '';
-            console.log('Message sent successfully:', message);
-            // Reload messages from server to avoid duplicates
-            this.loadMessages();
-          },
-          error: (error) => {
-            console.error('Error sending message:', error);
-          }
-        });
-        return;
-      }
+    const groupId = this.currentGroup.id || this.currentGroup._id!;
+    const channelId = this.currentChannel.id || this.currentChannel._id!;
+
+    if (!channelId) {
+      console.log('No valid channel ID, returning');
+      return;
     }
 
-    const groupId = this.currentGroup.id || this.currentGroup._id!;
-    const channelId = this.currentChannel!.id || this.currentChannel!._id!;
-    console.log('Sending message with groupId:', groupId, 'channelId:', channelId);
+    // 使用Socket.IO发送消息
+    this.socketService.sendMessage(channelId, this.newMessage, 'text');
 
-    this.groupService.sendMessage(groupId, channelId, this.newMessage).subscribe({
-      next: (message) => {
-        this.newMessage = '';
-        console.log('Message sent successfully:', message);
-        // Reload messages from server to avoid duplicates
-        this.loadMessages();
-      },
-      error: (error) => {
-        console.error('Error sending message:', error);
-      }
-    });
+    // 清空输入框
+    this.newMessage = '';
   }
 
   createChannel(): void {
@@ -1140,7 +1151,6 @@ export class ChatComponent implements OnInit, OnDestroy {
       next: (result) => {
         console.log('Upload result:', result);
         // 发送图片消息
-        const groupId = this.currentGroup!.id || this.currentGroup!._id!;
         const channelId = this.currentChannel!.id || this.currentChannel!._id!;
 
         console.log('Sending image message with:', {
@@ -1149,25 +1159,19 @@ export class ChatComponent implements OnInit, OnDestroy {
           mimeType: result.mimeType
         });
 
-        this.groupService.sendImageMessage(
-          groupId,
+        // 使用Socket.IO发送图片消息
+        this.socketService.sendMessage(
           channelId,
+          '', // 图片消息内容为空
+          'image',
           result.fileUrl,
           result.fileSize,
           result.mimeType
-        ).subscribe({
-          next: (message) => {
-            this.messages.push(message);
-            this.removeImagePreview();
-            this.isUploading = false;
-            this.scrollToBottom();
-          },
-          error: (error) => {
-            console.error('发送图片消息失败:', error);
-            alert('发送图片消息失败: ' + (error.error?.message || error.message));
-            this.isUploading = false;
-          }
-        });
+        );
+
+        // 清空图片预览
+        this.removeImagePreview();
+        this.isUploading = false;
       },
       error: (error) => {
         console.error('上传图片失败:', error);
