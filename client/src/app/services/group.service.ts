@@ -102,6 +102,41 @@ export class GroupService {
       );
   }
 
+  // 发送图片消息
+  sendImageMessage(groupId: string, channelId: string, imageUrl: string, fileSize: number, mimeType: string): Observable<Message> {
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser) throw new Error('User not authenticated');
+
+    const payload = {
+      content: '',
+      type: 'image',
+      fileUrl: imageUrl,
+      fileSize: fileSize,
+      mimeType: mimeType
+    };
+
+    return this.http.post<{ success: boolean; message: Message }>(`${this.API_URL}/groups/${groupId}/channels/${channelId}/messages`, payload)
+      .pipe(
+        map(response => response.message)
+      );
+  }
+
+  // 上传图片文件
+  uploadImage(file: File): Observable<{ fileUrl: string; fileName: string; fileSize: number; mimeType: string }> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    return this.http.post<{ success: boolean; fileUrl: string; fileInfo: any }>(`${this.API_URL}/upload/image`, formData)
+      .pipe(
+        map(response => ({
+          fileUrl: response.fileUrl,
+          fileName: response.fileInfo.originalName,
+          fileSize: response.fileInfo.size,
+          mimeType: response.fileInfo.mimeType
+        }))
+      );
+  }
+
   getChannelMessages(groupId: string, channelId: string, limit: number = 50): Observable<Message[]> {
     return this.http.get<{ success: boolean; messages: Message[] }>(`${this.API_URL}/groups/${groupId}/channels/${channelId}/messages?limit=${limit}`)
       .pipe(

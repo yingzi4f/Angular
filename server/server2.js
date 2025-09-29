@@ -15,6 +15,7 @@ const authRoutes = require('./routes/auth');
 const groupRoutes = require('./routes/groups');
 const uploadRoutes = require('./routes/upload');
 const adminRoutes = require('./routes/admin');
+const profileRoutes = require('./routes/profile');
 
 // 导入中间件
 const { authenticateToken } = require('./middleware/auth');
@@ -60,6 +61,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/groups', authenticateToken, groupRoutes);
 app.use('/api/upload', authenticateToken, uploadRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/profile', profileRoutes);
 
 // 健康检查端点
 app.get('/api/health', async (req, res) => {
@@ -186,6 +188,18 @@ io.on('connection', (socket) => {
   socket.on('send-message', async (data) => {
     try {
       const { channelId, message, user, type = 'text', fileUrl, fileName, fileSize, mimeType } = data;
+
+      // 验证消息内容
+      if (type === 'text' && (!message || message.trim() === '')) {
+        socket.emit('error', { message: '消息内容不能为空' });
+        return;
+      }
+
+      // 对于图片、文件、视频类型，需要fileUrl
+      if (['image', 'file', 'video'].includes(type) && !fileUrl) {
+        socket.emit('error', { message: '文件URL不能为空' });
+        return;
+      }
 
       // 验证权限
       const channel = await mongoDataStore.findChannelById(channelId);

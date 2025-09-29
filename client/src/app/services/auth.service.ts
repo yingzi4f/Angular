@@ -47,6 +47,11 @@ export class AuthService {
     return this.currentUserSubject.value;
   }
 
+  updateCurrentUser(user: any): void {
+    this.currentUserSubject.next(user);
+    localStorage.setItem('currentUser', JSON.stringify(user));
+  }
+
   hasRole(role: string): boolean {
     const user = this.getCurrentUser();
     return user ? user.roles.includes(role) : false;

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -56,10 +56,10 @@ import { Group, Channel, Message } from '../../models/group.model';
         <div class="members-section">
           <h4>成员 ({{ getMemberCount() }})</h4>
           <div class="members-list">
-            <div *ngFor="let member of currentGroup?.memberIds" class="member-item">
-              {{ getMemberUsername(member._id || member.id || member) }}
-              <span *ngIf="isGroupAdmin(member._id || member.id || member)" class="admin-label">管理员</span>
-            </div>
+             <div *ngFor="let member of currentGroup?.memberIds" class="member-item">
+               {{ getMemberUsername(member) }}
+               <span *ngIf="isGroupAdmin(member)" class="admin-label">管理员</span>
+             </div>
           </div>
         </div>
 
@@ -84,23 +84,61 @@ import { Group, Channel, Message } from '../../models/group.model';
 
         <div class="chat-messages" *ngIf="currentChannel" #messagesContainer>
           <div *ngFor="let message of messages" class="message">
-            <div class="message-header">
-              <strong>{{ message.senderUsername }}</strong>
-              <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+            <div class="message-avatar">
+              <img [src]="getAvatarUrl(message.senderId)"
+                   [alt]="message.senderUsername"
+                   class="avatar-small"
+                   (error)="onAvatarError($event)">
             </div>
-            <div class="message-content">{{ message.content }}</div>
+            <div class="message-content-wrapper">
+              <div class="message-header">
+                <strong>{{ message.senderUsername }}</strong>
+                <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+              </div>
+              <div class="message-content">
+                <div *ngIf="message.type === 'text'">{{ message.content }}</div>
+                <div *ngIf="message.type === 'image'" class="image-message">
+                  <img [src]="'http://localhost:3000' + message.fileUrl"
+                       [alt]="'图片消息'"
+                       class="chat-image"
+                       (error)="onImageError($event)"
+                       (click)="openImagePreview('http://localhost:3000' + message.fileUrl)">
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="chat-input" *ngIf="currentGroup">
-          <form (ngSubmit)="sendMessage()">
-            <input
-              type="text"
-              [(ngModel)]="newMessage"
-              name="newMessage"
-              placeholder="输入消息..."
-              class="message-input">
-            <button type="submit" class="btn btn-primary">发送</button>
+          <div class="attachment-preview" *ngIf="selectedImage">
+            <div class="preview-container">
+              <span class="preview-filename">{{ selectedImage.name }}</span>
+              <button class="btn-remove-preview" (click)="removeImagePreview()">×</button>
+            </div>
+          </div>
+
+          <form (ngSubmit)="sendMessage()" class="message-form">
+            <div class="input-container">
+              <input
+                type="text"
+                [(ngModel)]="newMessage"
+                name="newMessage"
+                placeholder="输入消息..."
+                class="message-input"
+                [disabled]="isUploading">
+              <input
+                #fileInput
+                type="file"
+                accept="image/*"
+                (change)="onImageSelected($event)"
+                style="display: none">
+              <button type="button" class="btn-attachment" title="发送图片" (click)="triggerFileInput()" [disabled]="isUploading">
+                📎
+              </button>
+            </div>
+            <button type="submit" class="btn btn-primary" [disabled]="isUploading">
+              {{ isUploading ? '上传中...' : '发送' }}
+            </button>
           </form>
         </div>
       </div>
@@ -163,34 +201,34 @@ import { Group, Channel, Message } from '../../models/group.model';
         <div class="modal-content">
           <h3>管理成员</h3>
           <div class="members-management">
-            <div *ngFor="let member of currentGroup?.memberIds" class="member-management-item">
-              <div class="member-info">
-                <span>{{ getMemberUsername(member._id || member.id || member) }}</span>
-                <span *ngIf="isGroupAdmin(member._id || member.id || member)" class="admin-label group-admin">群组管理员</span>
-              </div>
-              <div class="member-actions">
-                <!-- Super Admin can promote/demote group admins -->
-                <button
-                  *ngIf="authService.isSuperAdmin() && (member._id || member.id || member) !== currentUser?.id && !isGroupAdmin(member._id || member.id || member)"
-                  class="btn btn-success btn-small"
-                  (click)="promoteToGroupAdmin(member._id || member.id || member)">
-                  提升为管理员
-                </button>
-                <button
-                  *ngIf="authService.isSuperAdmin() && (member._id || member.id || member) !== currentUser?.id && isGroupAdmin(member._id || member.id || member)"
-                  class="btn btn-warning btn-small"
-                  (click)="demoteFromGroupAdmin(member._id || member.id || member)">
-                  撤销管理员
-                </button>
-                <!-- Regular remove member button -->
-                <button
-                  *ngIf="(member._id || member.id || member) !== currentUser?.id && !isGroupAdmin(member._id || member.id || member)"
-                  class="btn btn-danger btn-small"
-                  (click)="removeMember(member._id || member.id || member)">
-                  移除
-                </button>
-              </div>
-            </div>
+             <div *ngFor="let member of currentGroup?.memberIds" class="member-management-item">
+               <div class="member-info">
+                 <span>{{ getMemberUsername(member) }}</span>
+                 <span *ngIf="isGroupAdmin(member)" class="admin-label group-admin">群组管理员</span>
+               </div>
+               <div class="member-actions">
+                 <!-- Super Admin can promote/demote group admins -->
+                 <button
+                   *ngIf="authService.isSuperAdmin() && getMemberId(member) !== currentUser?.id && !isGroupAdmin(member)"
+                   class="btn btn-success btn-small"
+                   (click)="promoteToGroupAdmin(getMemberId(member))">
+                   提升为管理员
+                 </button>
+                 <button
+                   *ngIf="authService.isSuperAdmin() && getMemberId(member) !== currentUser?.id && isGroupAdmin(member)"
+                   class="btn btn-warning btn-small"
+                   (click)="demoteFromGroupAdmin(getMemberId(member))">
+                   撤销管理员
+                 </button>
+                 <!-- Regular remove member button -->
+                 <button
+                   *ngIf="getMemberId(member) !== currentUser?.id && !isGroupAdmin(member)"
+                   class="btn btn-danger btn-small"
+                   (click)="removeMember(getMemberId(member))">
+                   移除
+                 </button>
+               </div>
+             </div>
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary" (click)="showManageMembers = false">关闭</button>
@@ -376,11 +414,28 @@ import { Group, Channel, Message } from '../../models/group.model';
     }
 
     .message {
+      display: flex;
       background-color: white;
       margin-bottom: 15px;
       padding: 12px;
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .message-avatar {
+      margin-right: 12px;
+    }
+
+    .avatar-small {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #e1e5e9;
+    }
+
+    .message-content-wrapper {
+      flex: 1;
     }
 
     .message-header {
@@ -404,24 +459,122 @@ import { Group, Channel, Message } from '../../models/group.model';
       line-height: 1.4;
     }
 
+    .image-message {
+      margin-top: 8px;
+    }
+
+    .chat-image {
+      max-width: 300px;
+      max-height: 300px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .chat-image:hover {
+      transform: scale(1.05);
+    }
+
     .chat-input {
       padding: 20px;
       border-top: 1px solid #ecf0f1;
       background-color: white;
     }
 
-    .chat-input form {
+    .attachment-preview {
+      margin-bottom: 10px;
+      padding: 8px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      border: 1px dashed #dee2e6;
+    }
+
+    .preview-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .preview-filename {
+      font-size: 14px;
+      color: #495057;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 200px;
+    }
+
+    .btn-remove-preview {
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-remove-preview:hover {
+      background: #c82333;
+    }
+
+    .message-form {
       display: flex;
       gap: 10px;
     }
 
+    .input-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      border: 1px solid #ddd;
+      border-radius: 25px;
+      padding: 0 12px;
+    }
+
     .message-input {
       flex: 1;
-      padding: 12px;
-      border: 1px solid #ddd;
+      padding: 12px 0;
+      border: none;
       border-radius: 25px;
       font-size: 14px;
       outline: none;
+    }
+
+    .message-input:disabled {
+      background-color: #f8f9fa;
+    }
+
+    .btn-attachment {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 8px;
+      color: #6c757d;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .btn-attachment:hover:not(:disabled) {
+      background-color: #007bff;
+      border-color: #007bff;
+      color: white;
+      transform: scale(1.1);
+    }
+
+    .btn-attachment:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .message-input:focus {
@@ -502,6 +655,11 @@ export class ChatComponent implements OnInit, OnDestroy {
   messages: Message[] = [];
   newMessage = '';
   allUsers: User[] = [];
+
+  // 图片上传相关属性
+  selectedImage: File | null = null;
+  isUploading = false;
+  @ViewChild('fileInput') fileInput!: ElementRef;
 
   showCreateChannel = false;
   showAddUser = false;
@@ -591,6 +749,8 @@ export class ChatComponent implements OnInit, OnDestroy {
       const channelId = this.currentChannel.id || this.currentChannel._id!;
       this.groupService.getChannelMessages(groupId, channelId).subscribe(messages => {
         this.messages = messages;
+        // 加载消息后滚动到底部
+        setTimeout(() => this.scrollToBottom(), 100);
       });
     }
   }
@@ -601,6 +761,13 @@ export class ChatComponent implements OnInit, OnDestroy {
     console.log('currentChannel:', this.currentChannel);
     console.log('currentGroup:', this.currentGroup);
 
+    // 如果有选中的图片，发送图片消息
+    if (this.selectedImage) {
+      this.sendImageMessage();
+      return;
+    }
+
+    // 如果没有文本消息且没有图片，直接返回
     if (!this.newMessage.trim()) {
       console.log('Empty message, returning');
       return;
@@ -898,6 +1065,13 @@ export class ChatComponent implements OnInit, OnDestroy {
     return this.currentGroup ? (this.currentGroup.memberIds?.length || 0) : 0;
   }
 
+  getMemberId(member: any): string {
+    if (typeof member === 'string') {
+      return member;
+    }
+    return member?._id || member?.id || '';
+  }
+
   getMemberUsername(userIdOrObject: string | any): string {
     console.log('getMemberUsername called with:', userIdOrObject, 'type:', typeof userIdOrObject);
 
@@ -923,6 +1097,117 @@ export class ChatComponent implements OnInit, OnDestroy {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  // 图片处理方法
+  triggerFileInput(): void {
+    this.fileInput.nativeElement.click();
+  }
+
+  onImageSelected(event: any): void {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件');
+      return;
+    }
+
+    // 验证文件大小 (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('文件大小不能超过5MB');
+      return;
+    }
+
+    this.selectedImage = file;
+  }
+
+  removeImagePreview(): void {
+    this.selectedImage = null;
+    if (this.fileInput && this.fileInput.nativeElement) {
+      this.fileInput.nativeElement.value = '';
+    }
+  }
+
+  sendImageMessage(): void {
+    if (!this.selectedImage || !this.currentGroup || !this.currentChannel) return;
+
+    this.isUploading = true;
+
+    // 上传图片
+    this.groupService.uploadImage(this.selectedImage).subscribe({
+      next: (result) => {
+        console.log('Upload result:', result);
+        // 发送图片消息
+        const groupId = this.currentGroup!.id || this.currentGroup!._id!;
+        const channelId = this.currentChannel!.id || this.currentChannel!._id!;
+
+        console.log('Sending image message with:', {
+          fileUrl: result.fileUrl,
+          fileSize: result.fileSize,
+          mimeType: result.mimeType
+        });
+
+        this.groupService.sendImageMessage(
+          groupId,
+          channelId,
+          result.fileUrl,
+          result.fileSize,
+          result.mimeType
+        ).subscribe({
+          next: (message) => {
+            this.messages.push(message);
+            this.removeImagePreview();
+            this.isUploading = false;
+            this.scrollToBottom();
+          },
+          error: (error) => {
+            console.error('发送图片消息失败:', error);
+            alert('发送图片消息失败: ' + (error.error?.message || error.message));
+            this.isUploading = false;
+          }
+        });
+      },
+      error: (error) => {
+        console.error('上传图片失败:', error);
+        alert('上传图片失败: ' + (error.error?.message || error.message));
+        this.isUploading = false;
+      }
+    });
+  }
+
+  onImageError(event: any): void {
+    event.target.src = 'assets/default-image.png';
+  }
+
+  openImagePreview(imageUrl: string): void {
+    // 在实际应用中，可以打开一个模态框显示大图
+    window.open(imageUrl, '_blank');
+  }
+
+  scrollToBottom(): void {
+    try {
+      const messagesContainer = document.querySelector('.chat-messages');
+      if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    } catch(err) {
+      console.log('Scroll to bottom error:', err);
+    }
+  }
+
+  // 头像相关方法
+  getAvatarUrl(userId: string): string {
+    // 在实际应用中，你可能需要从用户数据中获取头像URL
+    // 这里我们检查是否有用户数据包含头像信息
+    // 如果有用户数据，可以在这里查找对应的头像
+    // 目前返回默认头像
+    return '/assets/default-avatar.png';
+  }
+
+  onAvatarError(event: any): void {
+    event.target.src = '/assets/default-avatar.png';
   }
 
   goBack(): void {

@@ -859,12 +859,24 @@ router.get('/:groupId/channels/:channelId/messages', async (req, res) => {
 router.post('/:groupId/channels/:channelId/messages', async (req, res) => {
   try {
     const { groupId, channelId } = req.params;
-    const { content, type = 'text' } = req.body;
+    const { content, type = 'text', fileUrl, fileName, fileSize, mimeType } = req.body;
 
-    if (!content) {
+    // 调试日志
+    console.log('Received message data:', { content, type, fileUrl, fileName, fileSize, mimeType });
+
+    // 对于非文本消息类型，内容可以为空
+    if (type === 'text' && (!content || content.trim() === '')) {
       return res.status(400).json({
         success: false,
         message: '消息内容不能为空'
+      });
+    }
+
+    // 对于图片、文件、视频类型，需要fileUrl
+    if (['image', 'file', 'video'].includes(type) && !fileUrl) {
+      return res.status(400).json({
+        success: false,
+        message: '文件URL不能为空'
       });
     }
 
@@ -899,13 +911,24 @@ router.post('/:groupId/channels/:channelId/messages', async (req, res) => {
       }
     }
 
-    const message = await dataStore.addMessage({
+    // 准备消息数据，包含图片相关字段（如果存在）
+    const messageData = {
       content,
       senderId: req.user.id,
       senderUsername: req.user.username,
       channelId,
       type
-    });
+    };
+
+    // 如果是图片、文件或视频类型，添加相关字段
+    if (['image', 'file', 'video'].includes(type)) {
+      if (fileUrl) messageData.fileUrl = fileUrl;
+      if (fileName) messageData.fileName = fileName;
+      if (fileSize) messageData.fileSize = fileSize;
+      if (mimeType) messageData.mimeType = mimeType;
+    }
+
+    const message = await dataStore.addMessage(messageData);
 
     res.status(201).json({
       success: true,

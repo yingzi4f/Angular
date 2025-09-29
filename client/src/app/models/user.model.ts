@@ -5,6 +5,7 @@ export interface User {
   email: string;
   roles: string[];
   groups: string[];
+  avatar?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

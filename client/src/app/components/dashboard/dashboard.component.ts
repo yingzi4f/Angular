@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { GroupService } from '../../services/group.service';
+import { ProfileService } from '../../services/profile.service';
 import { User } from '../../models/user.model';
 import { Group } from '../../models/group.model';
 import { FormsModule } from '@angular/forms';
@@ -16,10 +17,20 @@ import { FormsModule } from '@angular/forms';
       <header class="dashboard-header">
         <h1>聊天系统</h1>
         <div class="user-info">
-          <span>欢迎, {{ currentUser?.username }}</span>
-          <span class="role-badge" [ngClass]="getRoleClass()">
-            {{ getRoleDisplay() }}
-          </span>
+          <div class="user-profile" (click)="goToProfile()">
+            <img
+              [src]="getAvatarUrl(currentUser?.avatar)"
+              [alt]="currentUser?.username"
+              class="user-avatar"
+              (error)="onAvatarError($event)"
+            />
+            <div class="user-details">
+              <span class="username">{{ currentUser?.username }}</span>
+              <span class="role-badge" [ngClass]="getRoleClass()">
+                {{ getRoleDisplay() }}
+              </span>
+            </div>
+          </div>
           <button class="btn btn-secondary" (click)="logout()">退出</button>
         </div>
       </header>
@@ -292,6 +303,22 @@ import { FormsModule } from '@angular/forms';
       gap: 15px;
     }
 
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
     .role-badge {
       padding: 4px 8px;
       border-radius: 12px;
@@ -353,10 +380,11 @@ import { FormsModule } from '@angular/forms';
 
     .group-delete {
       margin-left: 10px;
-      margin-top: 5px;
+      margin-top: 15px;
       padding: 5px 10px;
       font-size: 12px;
       opacity: 0.8;
+      align-self: flex-end;
     }
 
     .group-delete:hover {
@@ -603,6 +631,7 @@ export class DashboardComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private groupService: GroupService,
+    private profileService: ProfileService,
     private router: Router
   ) {}
 
@@ -941,6 +970,18 @@ export class DashboardComponent implements OnInit {
         }
       });
     }
+  }
+
+  getAvatarUrl(avatar: string | null | undefined): string {
+    return this.profileService.getAvatarUrl(avatar);
+  }
+
+  onAvatarError(event: any): void {
+    event.target.src = '/assets/default-avatar.svg';
+  }
+
+  goToProfile(): void {
+    this.router.navigate(['/profile']);
   }
 
   logout(): void {
