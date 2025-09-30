@@ -441,6 +441,38 @@ router.get('/:groupId/applications', async (req, res) => {
   }
 });
 
+// 获取群组频道列表
+router.get('/:groupId/channels', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    const group = await dataStore.findGroupById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: '群组未找到'
+      });
+    }
+
+    if (!hasPermission(req.user, group, 'view')) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足'
+      });
+    }
+
+    const channels = await dataStore.getGroupChannels(groupId);
+    res.json(channels);
+
+  } catch (error) {
+    console.error('Get channels error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
+
 // 创建频道
 router.post('/:groupId/channels', async (req, res) => {
   try {
@@ -985,7 +1017,7 @@ router.get('/:groupId/channels/:channelId/messages', async (req, res) => {
       }
     }
 
-    const messages = await dataStore.getChannelMessages(channelId, limit);
+    const messages = await dataStore.getChannelMessages(channelId, { limit });
 
     res.json({
       success: true,

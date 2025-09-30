@@ -58,21 +58,23 @@ groupApplicationSchema.statics.getPendingApplicationsForGroup = async function(g
     .populate('groupId', 'name description')
     .sort({ createdAt: -1 });
 
-  // 扁平化数据结构，方便前端使用
-  return applications.map(app => ({
-    _id: app._id,
-    id: app._id,
-    groupId: app.groupId._id,
-    userId: app.userId._id,
-    username: app.userId.username,
-    groupName: app.groupId.name,
-    message: app.message,
-    status: app.status,
-    appliedAt: app.createdAt,
-    reviewedBy: app.reviewedBy,
-    reviewedAt: app.reviewedAt,
-    reviewMessage: app.reviewMessage
-  }));
+  // 扁平化数据结构，方便前端使用，过滤掉用户或群组已被删除的申请
+  return applications
+    .filter(app => app.userId && app.groupId)
+    .map(app => ({
+      _id: app._id,
+      id: app._id,
+      groupId: app.groupId._id,
+      userId: app.userId._id,
+      username: app.userId.username,
+      groupName: app.groupId.name,
+      message: app.message,
+      status: app.status,
+      appliedAt: app.createdAt,
+      reviewedBy: app.reviewedBy,
+      reviewedAt: app.reviewedAt,
+      reviewMessage: app.reviewMessage
+    }));
 };
 
 // 静态方法：获取所有待审核申请（管理员用）
@@ -82,21 +84,23 @@ groupApplicationSchema.statics.getAllPendingApplications = async function() {
     .populate('groupId', 'name description')
     .sort({ createdAt: -1 });
 
-  // 扁平化数据结构，方便前端使用
-  return applications.map(app => ({
-    _id: app._id,
-    id: app._id,
-    groupId: app.groupId._id,
-    userId: app.userId._id,
-    username: app.userId.username,
-    groupName: app.groupId.name,
-    message: app.message,
-    status: app.status,
-    appliedAt: app.createdAt,
-    reviewedBy: app.reviewedBy,
-    reviewedAt: app.reviewedAt,
-    reviewMessage: app.reviewMessage
-  }));
+  // 扁平化数据结构，方便前端使用，过滤掉用户或群组已被删除的申请
+  return applications
+    .filter(app => app.userId && app.groupId)
+    .map(app => ({
+      _id: app._id,
+      id: app._id,
+      groupId: app.groupId._id,
+      userId: app.userId._id,
+      username: app.userId.username,
+      groupName: app.groupId.name,
+      message: app.message,
+      status: app.status,
+      appliedAt: app.createdAt,
+      reviewedBy: app.reviewedBy,
+      reviewedAt: app.reviewedAt,
+      reviewMessage: app.reviewMessage
+    }));
 };
 
 module.exports = mongoose.model('GroupApplication', groupApplicationSchema);

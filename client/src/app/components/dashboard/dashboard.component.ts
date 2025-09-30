@@ -161,6 +161,12 @@ import { FormsModule } from '@angular/forms';
                     提升为群组管理员
                   </button>
                   <button
+                    *ngIf="isSuperAdmin() && user.roles.includes('group-admin') && user.id !== currentUser?.id"
+                    class="btn btn-small btn-warning"
+                    (click)="demoteFromGroupAdmin(user)">
+                    取消管理员权限
+                  </button>
+                  <button
                     *ngIf="isSuperAdmin() && user.id !== currentUser?.id"
                     class="btn btn-small btn-danger"
                     (click)="deleteUser(user)">
@@ -603,6 +609,17 @@ import { FormsModule } from '@angular/forms';
       background-color: #c82333;
       border-color: #bd2130;
     }
+
+    .btn-warning {
+      background-color: #ffc107;
+      border-color: #ffc107;
+      color: #212529;
+    }
+
+    .btn-warning:hover {
+      background-color: #e0a800;
+      border-color: #d39e00;
+    }
   `]
 })
 export class DashboardComponent implements OnInit {
@@ -776,6 +793,26 @@ export class DashboardComponent implements OnInit {
         return;
       }
       this.authService.updateUserRoles(userId, newRoles).subscribe({
+        next: () => {
+          this.loadAllUsers();
+          alert('用户权限已更新');
+        },
+        error: (error) => {
+          console.error('更新用户权限失败:', error);
+          alert('更新用户权限失败');
+        }
+      });
+    }
+  }
+
+  demoteFromGroupAdmin(user: User): void {
+    if (confirm(`确定要取消用户 ${user.username} 的群组管理员权限吗？`)) {
+      const userId = user._id || user.id;
+      if (!userId) {
+        alert('用户ID无效');
+        return;
+      }
+      this.authService.demoteUserRole(userId, 'group-admin').subscribe({
         next: () => {
           this.loadAllUsers();
           alert('用户权限已更新');

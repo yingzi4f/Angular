@@ -34,7 +34,14 @@
       "mcp__playwright__playwright_custom_user_agent",
       "mcp__playwright__playwright_close",
       "Bash(npm run:*)",
-      "Bash(nc localhost 3000)"
+      "Bash(nc localhost 3000)",
+      "Bash(npm install)",
+      "Bash(npm cache clean:*)",
+      "Bash(npm install:*)",
+      "Bash(npm:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(timeout 30 npm test:*)",
+      "Bash(timeout 120 npm run test:coverage -- --watch=false --browsers=ChromeHeadless)"
     ],
     "deny": [],
     "ask": []

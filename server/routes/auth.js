@@ -27,7 +27,7 @@ router.post('/login', async (req, res) => {
 
     let isPasswordValid = false;
 
-    if (user.username === 'super' && password === '123') {
+    if (user.username === 'super' && password === '123456') {
       isPasswordValid = true;
     } else {
       isPasswordValid = await bcrypt.compare(password, user.password);
@@ -76,7 +76,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    const existingUser = dataStore.findUserByUsername(username);
+    const existingUser = await dataStore.findUserByUsername(username);
     if (existingUser) {
       return res.status(409).json({
         success: false,
@@ -84,12 +84,10 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = dataStore.addUser({
+    const newUser = await dataStore.addUser({
       username,
       email,
-      password: hashedPassword,
+      password,
       roles: ['user']
     });
 
@@ -142,7 +140,7 @@ router.get('/users', async (req, res) => {
   }
 });
 
-router.put('/users/:id/promote', (req, res) => {
+router.put('/users/:id/promote', async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
@@ -154,7 +152,7 @@ router.put('/users/:id/promote', (req, res) => {
       });
     }
 
-    const user = dataStore.findUserById(id);
+    const user = await dataStore.findUserById(id);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -179,6 +177,55 @@ router.put('/users/:id/promote', (req, res) => {
 
   } catch (error) {
     console.error('Promote user error:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+});
+
+router.put('/users/:id/demote', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!['group-admin', 'super-admin'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: '无效的角色'
+      });
+    }
+
+    const user = await dataStore.findUserById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: '用户未找到'
+      });
+    }
+
+    // 确保user.roles存在并且是数组
+    if (!user.roles || !Array.isArray(user.roles)) {
+      user.roles = ['user'];
+    }
+
+    // 从角色列表中移除指定角色
+    if (user.roles.includes(role)) {
+      user.roles = user.roles.filter(r => r !== role);
+      // 确保至少保留user角色
+      if (!user.roles.includes('user')) {
+        user.roles.push('user');
+      }
+      await dataStore.updateUser(id, { roles: user.roles });
+    }
+
+    res.json({
+      success: true,
+      message: '用户权限已更新'
+    });
+
+  } catch (error) {
+    console.error('Demote user error:', error);
     res.status(500).json({
       success: false,
       message: '服务器错误'

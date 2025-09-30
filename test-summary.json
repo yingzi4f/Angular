@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-09-30T06:34:08.776Z",
+  "frontend": {
+    "coverage": null,
+    "testResults": null
+  },
+  "backend": {
+    "coverage": null,
+    "testResults": null
+  },
+  "e2e": {
+    "testResults": null
+  }
+}

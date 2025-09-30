@@ -101,6 +101,9 @@ class MongoDataStore {
           { $pull: { memberIds: userId } }
         );
 
+        // 删除该用户的所有群组申请记录
+        await GroupApplication.deleteMany({ userId: userId });
+
         return true;
       }
       return false;

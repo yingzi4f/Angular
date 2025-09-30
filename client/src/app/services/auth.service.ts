@@ -74,6 +74,10 @@ export class AuthService {
     return this.http.put(`${this.API_URL}/auth/users/${userId}/promote`, { role: roles[roles.length - 1] });
   }
 
+  demoteUserRole(userId: string, role: string): Observable<any> {
+    return this.http.put(`${this.API_URL}/auth/users/${userId}/demote`, { role });
+  }
+
   registerUser(user: any): Observable<any> {
     return this.http.post<any>(`${this.API_URL}/auth/register`, user);
   }
