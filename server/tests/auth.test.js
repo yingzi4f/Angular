@@ -536,4 +536,211 @@ describe('Auth API Integration Tests', () => {
       expect(response.body.message).toBe('密码长度不能少于6个字符');
     });
   });
+
+  describe('Error Handling Tests', () => {
+    it('should handle database errors in login', async () => {
+      const originalFind = dataStore.findUserByUsername;
+      dataStore.findUserByUsername = jest.fn().mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testuser',
+          password: 'password123'
+        });
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('服务器错误');
+
+      dataStore.findUserByUsername = originalFind;
+    });
+
+    it('should handle database errors in register', async () => {
+      const originalAdd = dataStore.addUser;
+      dataStore.addUser = jest.fn().mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({
+          username: 'newuser',
+          email: 'new@example.com',
+          password: 'password123'
+        });
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('服务器错误');
+
+      dataStore.addUser = originalAdd;
+    });
+
+    it('should handle database errors in getUsers', async () => {
+      const originalGet = dataStore.getUsers;
+      dataStore.getUsers = jest.fn().mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app)
+        .get('/api/auth/users');
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('服务器错误');
+
+      dataStore.getUsers = originalGet;
+    });
+
+    it('should handle database errors in promote', async () => {
+      const user = await dataStore.findUserByUsername('testuser');
+      const originalFind = dataStore.findUserById;
+      dataStore.findUserById = jest.fn().mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app)
+        .put(`/api/auth/users/${user._id || user.id}/promote`)
+        .send({ role: 'group-admin' });
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('服务器错误');
+
+      dataStore.findUserById = originalFind;
+    });
+
+    it('should handle user with missing roles array in promote', async () => {
+      const user = await dataStore.findUserByUsername('testuser');
+      const originalFind = dataStore.findUserById;
+
+      // Mock a user without roles array
+      dataStore.findUserById = jest.fn().mockResolvedValue({
+        _id: user._id || user.id,
+        username: user.username,
+        email: user.email
+        // No roles property
+      });
+
+      const response = await request(app)
+        .put(`/api/auth/users/${user._id || user.id}/promote`)
+        .send({ role: 'group-admin' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+
+      dataStore.findUserById = originalFind;
+    });
+
+    it('should handle database errors in demote', async () => {
+      const admin = await dataStore.findUserByUsername('admin');
+      const originalFind = dataStore.findUserById;
+      dataStore.findUserById = jest.fn().mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app)
+        .put(`/api/auth/users/${admin._id || admin.id}/demote`)
+        .send({ role: 'group-admin' });
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('服务器错误');
+
+      dataStore.findUserById = originalFind;
+    });
+
+    it('should handle user with missing roles array in demote', async () => {
+      const admin = await dataStore.findUserByUsername('admin');
+      const originalFind = dataStore.findUserById;
+
+      // Mock a user without roles array
+      dataStore.findUserById = jest.fn().mockResolvedValue({
+        _id: admin._id || admin.id,
+        username: admin.username,
+        email: admin.email,
+        roles: null  // Invalid roles
+      });
+
+      const response = await request(app)
+        .put(`/api/auth/users/${admin._id || admin.id}/demote`)
+        .send({ role: 'group-admin' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+
+      dataStore.findUserById = originalFind;
+    });
+
+    it('should ensure user role exists after demote', async () => {
+      const admin = await dataStore.findUserByUsername('admin');
+      const originalFind = dataStore.findUserById;
+      const originalUpdate = dataStore.updateUser;
+
+      let capturedRoles;
+      dataStore.updateUser = jest.fn().mockImplementation((id, updates) => {
+        capturedRoles = updates.roles;
+        return Promise.resolve({ ...admin, roles: updates.roles });
+      });
+
+      const response = await request(app)
+        .put(`/api/auth/users/${admin._id || admin.id}/demote`)
+        .send({ role: 'group-admin' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(capturedRoles).toContain('user');
+
+      dataStore.findUserById = originalFind;
+      dataStore.updateUser = originalUpdate;
+    });
+
+    it('should handle database errors in delete user', async () => {
+      // Login as admin first
+      const adminLoginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'admin',
+          password: 'password123'
+        });
+      const adminToken = adminLoginResponse.body.token;
+
+      const user = await dataStore.findUserByUsername('testuser');
+      const originalDelete = dataStore.deleteUser;
+      dataStore.deleteUser = jest.fn().mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app)
+        .delete(`/api/auth/users/${user._id || user.id}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('服务器错误');
+
+      dataStore.deleteUser = originalDelete;
+    });
+
+    it('should handle database errors in create user', async () => {
+      const adminLoginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'admin',
+          password: 'password123'
+        });
+      const adminToken = adminLoginResponse.body.token;
+
+      const originalCreate = dataStore.createUserByAdmin;
+
+      // Mock createUserByAdmin to throw error
+      dataStore.createUserByAdmin = jest.fn().mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/api/auth/admin/create-user')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          username: 'erroruser',
+          email: 'error@example.com',
+          password: 'password123'
+        });
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('服务器错误');
+
+      dataStore.createUserByAdmin = originalCreate;
+    });
+  });
 });

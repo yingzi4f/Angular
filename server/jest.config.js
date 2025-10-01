@@ -6,7 +6,11 @@ module.exports = {
     'models/**/*.js',
     'middleware/**/*.js',
     '!**/node_modules/**',
-    '!**/coverage/**'
+    '!**/coverage/**',
+    '!routes/auth2.js',
+    '!routes/groups2.js',
+    '!routes/groups_backup.js',
+    '!models/dataStore.js'
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],

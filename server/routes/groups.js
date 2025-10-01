@@ -370,9 +370,18 @@ router.post('/:groupId/apply', async (req, res) => {
       });
     }
 
-    // 检查用户是否已经是成员
-    if (group.memberIds.some(id => id.toString() === req.user.id.toString()) ||
-        group.adminIds.some(id => id.toString() === req.user.id.toString())) {
+    // 检查用户是否已经是成员 (考虑populate后的对象格式)
+    const isMember = group.memberIds.some(member => {
+      const memberId = member._id ? member._id.toString() : member.toString();
+      return memberId === req.user.id.toString();
+    });
+
+    const isAdmin = group.adminIds.some(admin => {
+      const adminId = admin._id ? admin._id.toString() : admin.toString();
+      return adminId === req.user.id.toString();
+    });
+
+    if (isMember || isAdmin) {
       return res.status(400).json({
         success: false,
         message: '您已经是该群组的成员'

@@ -24,9 +24,15 @@ class TestRunner {
   async runCommand(command, cwd, description) {
     this.log(`Starting: ${description}`);
     return new Promise((resolve, reject) => {
-      const child = spawn('bash', ['-c', command], {
+      // Windows compatibility: use 'cmd.exe' on Windows, 'bash' on Unix
+      const isWindows = process.platform === 'win32';
+      const shell = isWindows ? 'cmd.exe' : 'bash';
+      const shellArgs = isWindows ? ['/c', command] : ['-c', command];
+
+      const child = spawn(shell, shellArgs, {
         cwd,
-        stdio: 'pipe'
+        stdio: 'pipe',
+        shell: true
       });
 
       let stdout = '';
@@ -128,14 +134,16 @@ class TestRunner {
     const backendProcess = spawn('npm', ['run', 'dev'], {
       cwd: this.serverDir,
       detached: true,
-      stdio: 'pipe'
+      stdio: 'pipe',
+      shell: true
     });
 
     // Start frontend server
     const frontendProcess = spawn('npm', ['start'], {
       cwd: this.clientDir,
       detached: true,
-      stdio: 'pipe'
+      stdio: 'pipe',
+      shell: true
     });
 
     // Wait for servers to start
